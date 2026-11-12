@@ -48,10 +48,14 @@ await tick(true);
 // that one instead of running two at once.
 const task = schedule(EVERY_TEN_MINUTES, () => tick(false), { noOverlap: true });
 
-// Ctrl+C: stop the schedule and close the database cleanly.
-process.on("SIGINT", () => {
-  log("Stopping.");
-  void task.stop();
-  db.close();
-  process.exit(0);
-});
+// Stop cleanly on Ctrl+C (SIGINT) and when the system asks us to stop
+// (SIGTERM - what systemd sends on the server): end the schedule, close the
+// database, then exit.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    log("Stopping.");
+    void task.stop();
+    db.close();
+    process.exit(0);
+  });
+}

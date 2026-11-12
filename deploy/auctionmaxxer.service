@@ -1,0 +1,33 @@
+# systemd unit for the collector. deploy.sh installs it to
+# /etc/systemd/system/auctionmaxxer.service.
+#
+# systemd is what keeps the collector alive: it starts it at boot and
+# restarts it if it ever crashes - the job "npm start" in a terminal can't do.
+#
+# Useful commands on the server:
+#   systemctl status auctionmaxxer        is it running?
+#   journalctl -u auctionmaxxer -f        follow the log live
+#   journalctl -u auctionmaxxer -n 50     last 50 log lines
+#   systemctl restart auctionmaxxer       restart it
+
+[Unit]
+Description=auctionmaxxer auction house collector
+# Wait for the network: the first thing the collector does is call Blizzard.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=auction
+WorkingDirectory=/opt/auctionmaxxer/server
+# Same as "npm start", minus npm in the middle, so stop signals reach our code.
+ExecStart=/opt/auctionmaxxer/server/node_modules/.bin/tsx src/scheduler.ts
+Restart=always
+RestartSec=30
+# Small safety nets: the process can't gain extra privileges, and gets its
+# own private /tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+# "Start at boot" (once enabled with: systemctl enable auctionmaxxer).
+WantedBy=multi-user.target
