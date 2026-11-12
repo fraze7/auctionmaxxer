@@ -5,6 +5,7 @@ import { z } from "zod";
 import { collectOnce } from "./collector.js";
 import type { DataSource } from "./dataSource.js";
 import { openDb } from "./db.js";
+import { ForeverSource } from "./foreverSource.js";
 import { MockSource } from "./mockSource.js";
 
 // Settings arrive from .env as strings. Checking them here means a typo fails
@@ -13,6 +14,9 @@ const EnvSchema = z.object({
   RULESET_ID: z.coerce.number().int().positive(),
   HOUSE_ID: z.coerce.number().int().positive(),
   DATA_SOURCE: z.enum(["mock", "forever", "retail"]),
+  // Only needed for DATA_SOURCE=forever, so mock mode runs without credentials.
+  BLIZZARD_CLIENT_ID: z.string().optional(),
+  BLIZZARD_CLIENT_SECRET: z.string().optional(),
   // Relative to the folder you run from (server/). *.db is git-ignored.
   DB_PATH: z.string().min(1).default("data/auctionmaxxer.db"),
 });
@@ -23,8 +27,16 @@ function createSource(kind: typeof env.DATA_SOURCE): DataSource {
     case "mock":
       return new MockSource();
     case "forever":
+      if (!env.BLIZZARD_CLIENT_ID || !env.BLIZZARD_CLIENT_SECRET) {
+        throw new Error("DATA_SOURCE=forever needs BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET in .env");
+      }
+      return new ForeverSource({
+        clientId: env.BLIZZARD_CLIENT_ID,
+        clientSecret: env.BLIZZARD_CLIENT_SECRET,
+        rulesetId: env.RULESET_ID,
+      });
     case "retail":
-      throw new Error(`DATA_SOURCE=${kind} is not built yet - use DATA_SOURCE=mock for now`);
+      throw new Error("DATA_SOURCE=retail is not built yet - use mock or forever");
   }
 }
 

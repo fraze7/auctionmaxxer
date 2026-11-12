@@ -102,3 +102,28 @@ export interface ItemInfo {
   name: string;
   quality?: string; // e.g. "UNCOMMON"; optional until we know Forever sends it
 }
+
+// --- Other Blizzard responses (checked against the live API, 12 Nov 2026) ---
+
+// Names arrive in every language at once: { en_US: "...", de_DE: "...", ... }.
+// We only read en_GB; zod drops the other keys.
+const LocalizedNameSchema = z.object({ en_GB: z.string() });
+
+// GET /data/wow/ruleset/{id}/auctions/ - the houses in one ruleset.
+export const HousesIndexResponseSchema = z.object({
+  auctions: z.array(z.object({ id, name: LocalizedNameSchema })),
+});
+
+// GET /data/wow/item/{id}. There's much more in the response (level, media,
+// item class); we take only what the UI shows.
+export const ItemResponseSchema = z.object({
+  id,
+  name: LocalizedNameSchema,
+  quality: z.object({ type: z.string() }).optional(),
+});
+
+// POST https://oauth.battle.net/token. expires_in is in seconds (about 24h).
+export const TokenResponseSchema = z.object({
+  access_token: z.string().min(1),
+  expires_in: z.number().positive(),
+});
