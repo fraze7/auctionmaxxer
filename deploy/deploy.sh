@@ -26,10 +26,10 @@ fi
 
 echo "==> Uploading commit ${COMMIT}"
 # Old source is removed first so a file deleted in git also disappears there.
-git archive --format=tar HEAD server deploy |
+git archive --format=tar HEAD server web deploy |
   ssh "${TARGET}" "
     set -e
-    rm -rf ${APP_DIR}/server/src ${APP_DIR}/server/migrations
+    rm -rf ${APP_DIR}/server/src ${APP_DIR}/server/migrations ${APP_DIR}/web/src
     tar -x -C ${APP_DIR}
     chown -R auction:auction ${APP_DIR}
   "
@@ -40,6 +40,11 @@ ssh "${TARGET}" "
   cd ${APP_DIR}/server
   # npm ci = install exactly what package-lock.json says. Run as the app user.
   runuser -u auction -- npm ci --no-audit --no-fund
+  # Build the web app into web/dist, which the API server then serves.
+  cd ${APP_DIR}/web
+  runuser -u auction -- npm ci --no-audit --no-fund
+  runuser -u auction -- npm run build
+  cd ${APP_DIR}/server
   # Install the systemd units: the collector, and the nightly backup + its timer.
   install -m 644 ${APP_DIR}/deploy/*.service ${APP_DIR}/deploy/*.timer /etc/systemd/system/
   systemctl daemon-reload

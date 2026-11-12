@@ -1,0 +1,16 @@
+/* Tailwind v4: this one import brings in every utility class. */
+@import "tailwindcss";
+
+/* A dark dashboard: tell the browser so scrollbars and form controls match. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-zinc-950 text-zinc-200 antialiased;
+}
+
+/* Numbers in tables line up in columns when every digit has the same width. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

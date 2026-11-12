@@ -24,6 +24,9 @@ export interface ApiOptions {
   defaultHouseId: number;
   // Current time in Unix seconds. Only tests pass this.
   now?: () => number;
+  // Folder holding the built web app (web/dist). When given, the same server
+  // that answers /api also serves the pages, so one port does everything.
+  webDir?: string;
 }
 
 // --- Query-string schemas ---------------------------------------------------
@@ -351,6 +354,18 @@ export function createApp(options: ApiOptions): Express {
 
   // Any other /api path: a JSON 404 rather than Express's HTML page.
   app.use("/api", (_req, _res, next) => next(new HttpError(404, "No such endpoint")));
+
+  // The built web app, if there is one. express.static serves the real files
+  // (JS, CSS, favicon). Every other non-API address gets index.html, because
+  // pages like /items exist only inside the React app - there is no items.html.
+  const { webDir } = options;
+  if (webDir) {
+    app.use(express.static(webDir));
+    app.use((req, res, next) => {
+      if (req.method !== "GET") return next();
+      res.sendFile("index.html", { root: webDir });
+    });
+  }
 
   // The error handler. Express spots it by its four arguments. Anything a
   // route throws lands here: ours become their status, the rest a plain 500
