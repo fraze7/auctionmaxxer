@@ -55,16 +55,29 @@ export function migrate(db: Db, dir: string = MIGRATIONS_DIR): string[] {
     .filter((file) => file.endsWith(".sql"))
     .sort();
 
+  const isApplied = db.prepare<[string], { n: number }>(
+    "SELECT COUNT(*) AS n FROM schema_migrations WHERE name = ?",
+  );
+
   for (const file of files) {
     if (alreadyApplied.has(file)) continue;
     const sql = readFileSync(join(dir, file), "utf8");
     // One transaction per file: a migration either fully applies and is
     // recorded, or leaves no trace. Never half a schema.
-    db.transaction(() => {
-      db.exec(sql);
-      record.run(file, Math.floor(Date.now() / 1000));
-    })();
-    applied.push(file);
+    //
+    // .immediate() takes the database's write lock up front. The collector
+    // and the API both run migrations when they start, and a deploy restarts
+    // them together - so the second one waits here, then sees (re-checking
+    // inside the lock) that the first already did the work.
+    const ran = db
+      .transaction(() => {
+        if (isApplied.get(file)?.n) return false;
+        db.exec(sql);
+        record.run(file, Math.floor(Date.now() / 1000));
+        return true;
+      })
+      .immediate();
+    if (ran) applied.push(file);
   }
   return applied;
 }

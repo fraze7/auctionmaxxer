@@ -1,6 +1,8 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import type { Db } from "./db.js";
+import { findDeals } from "./deals.js";
+import { loadSettings } from "./settings.js";
 
 // The HTTP API the web app reads from. It only ever reads our own SQLite
 // database - it never calls Blizzard, and it never sees the client secret.
@@ -46,6 +48,14 @@ const HistoryQuery = z.object({
 });
 
 const StatusQuery = z.object({ house: houseParam });
+
+const DealsQuery = z.object({
+  house: houseParam,
+  show: z.enum(["deals", "falling"]).default("deals"),
+  minProfit: z.coerce.number().int().min(0).optional(), // copper per unit
+  maxQty: positiveInt.optional(), // most units you'd buy of one item
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
 
 const ItemParams = z.object({ id: positiveInt });
 
@@ -293,6 +303,50 @@ export function createApp(options: ApiOptions): Express {
       days: query.days,
       points: itemHistory.all({ itemId, houseId, since: now() - query.days * DAY_SECONDS }),
     });
+  });
+
+  // GET /api/deals?house=&show=deals|falling&minProfit=&maxQty=&limit=100
+  // Items priced well below their recent typical price, in a market that
+  // isn't simply falling - ranked by total profit after the AH cut.
+  // The rule itself is explained in deals.ts.
+  app.get("/api/deals", (req, res) => {
+    const query = parse(DealsQuery, req.query);
+    const houseId = query.house ?? defaultHouseId;
+    // Read on every request, so an edit to the settings table applies at once.
+    const settings = loadSettings(db);
+    const minProfit = query.minProfit ?? settings.dealMinProfit;
+
+    const result = findDeals({
+      db,
+      houseId,
+      settings,
+      show: query.show,
+      minProfit,
+      limit: query.limit,
+      ...(query.maxQty === undefined ? {} : { maxQty: query.maxQty }),
+    });
+
+    res.json({
+      house: houseId,
+      show: query.show,
+      minProfit,
+      takenAt: result.takenAt,
+      // Lets the UI say "collecting history: 12 of 48 snapshots" instead of
+      // showing an empty list with no explanation.
+      history: {
+        snapshots: result.snapshotsInWindow,
+        needed: settings.dealMinSnapshots,
+        ready: result.snapshotsInWindow >= settings.dealMinSnapshots,
+        itemsJudged: result.itemsJudged,
+      },
+      deals: result.deals,
+    });
+  });
+
+  // GET /api/settings
+  // The numbers the deals rule is using right now.
+  app.get("/api/settings", (_req, res) => {
+    res.json(loadSettings(db));
   });
 
   // Any other /api path: a JSON 404 rather than Express's HTML page.

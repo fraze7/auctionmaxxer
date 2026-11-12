@@ -277,3 +277,57 @@ describe("unknown API paths", () => {
     });
   });
 });
+
+describe("GET /api/deals", () => {
+  it("explains an empty list while history is still being collected", async () => {
+    await withApi(await seededDb(), async (get) => {
+      const { status, body } = await get("/api/deals");
+      assert.equal(status, 200);
+      assert.deepEqual(body.history, { snapshots: 2, needed: 48, ready: false, itemsJudged: 0 });
+      assert.deepEqual(body.deals, []);
+    });
+  });
+
+  it("returns a deal once there is enough history", async () => {
+    // 60 hourly snapshots of Peacebloom at 100c, then one at 60c.
+    const db = openDb(":memory:");
+    for (let hoursAgo = 60; hoursAgo >= 1; hoursAgo--) {
+      await store(db, NOW - hoursAgo * HOUR, [listing(PEACEBLOOM, 100, 10)]);
+    }
+    await store(db, NOW, [listing(PEACEBLOOM, 60, 25), listing(PEACEBLOOM, 100, 10)]);
+
+    await withApi(db, async (get) => {
+      const { body } = await get("/api/deals?maxQty=20");
+      assert.equal(body.history.ready, true);
+      assert.equal(body.minProfit, 1); // the default from the settings table
+      assert.equal(body.deals.length, 1);
+      const deal = body.deals[0];
+      assert.equal(deal.id, PEACEBLOOM);
+      assert.equal(deal.minPrice, 60);
+      assert.equal(deal.profitPerUnit, 35); // 100 - 5% cut = 95, minus 60
+      assert.equal(deal.qtyAtMin, 25);
+      assert.equal(deal.buyQty, 20); // capped by maxQty
+      assert.equal(deal.totalProfit, 700);
+
+      // A higher bar than the profit on offer hides it.
+      assert.deepEqual((await get("/api/deals?minProfit=36")).body.deals, []);
+    });
+  });
+
+  it("rejects an unknown show value", async () => {
+    await withApi(await seededDb(), async (get) => {
+      assert.equal((await get("/api/deals?show=everything")).status, 400);
+    });
+  });
+});
+
+describe("GET /api/settings", () => {
+  it("returns the numbers the deals rule uses", async () => {
+    await withApi(await seededDb(), async (get) => {
+      const { status, body } = await get("/api/settings");
+      assert.equal(status, 200);
+      assert.equal(body.ahCut, 0.05);
+      assert.equal(body.dealMinSnapshots, 48);
+    });
+  });
+});
