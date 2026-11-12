@@ -5,3 +5,4 @@ node_modules/
 *.db-wal
 dist/
 server/fixtures/
+server/data/

@@ -1,0 +1,15 @@
+# Starts auctionmaxxer-backup.service once a night.
+# To see when it last ran and when it runs next:
+#   systemctl list-timers auctionmaxxer-backup
+
+[Unit]
+Description=Nightly auctionmaxxer database backup
+
+[Timer]
+# 03:40 server time (UTC) every day.
+OnCalendar=*-*-* 03:40:00
+# If the server was off at 03:40, run the missed backup when it comes back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

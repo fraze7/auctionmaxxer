@@ -26,7 +26,7 @@ fi
 
 echo "==> Uploading commit ${COMMIT}"
 # Old source is removed first so a file deleted in git also disappears there.
-git archive --format=tar HEAD server deploy/auctionmaxxer.service |
+git archive --format=tar HEAD server deploy |
   ssh "${TARGET}" "
     set -e
     rm -rf ${APP_DIR}/server/src ${APP_DIR}/server/migrations
@@ -40,9 +40,11 @@ ssh "${TARGET}" "
   cd ${APP_DIR}/server
   # npm ci = install exactly what package-lock.json says. Run as the app user.
   runuser -u auction -- npm ci --no-audit --no-fund
-  install -m 644 ${APP_DIR}/deploy/auctionmaxxer.service /etc/systemd/system/auctionmaxxer.service
+  # Install the systemd units: the collector, and the nightly backup + its timer.
+  install -m 644 ${APP_DIR}/deploy/*.service ${APP_DIR}/deploy/*.timer /etc/systemd/system/
   systemctl daemon-reload
   systemctl enable auctionmaxxer >/dev/null 2>&1
+  systemctl enable --now auctionmaxxer-backup.timer >/dev/null 2>&1
   if [ -f .env ]; then
     systemctl restart auctionmaxxer
     sleep 8

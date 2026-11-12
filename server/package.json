@@ -8,6 +8,7 @@
     "test": "tsx --test \"src/**/*.test.ts\"",
     "start": "tsx src/scheduler.ts",
     "collect": "tsx src/collect.ts",
+    "backup": "tsx src/runBackup.ts",
     "try:mock": "tsx src/dev/tryMock.ts"
   },
   "keywords": [],
