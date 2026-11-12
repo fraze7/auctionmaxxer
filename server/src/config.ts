@@ -15,6 +15,9 @@ const EnvSchema = z.object({
   BLIZZARD_CLIENT_SECRET: z.string().optional(),
   // Relative to the folder you run from (server/). *.db is git-ignored.
   DB_PATH: z.string().min(1).default("data/auctionmaxxer.db"),
+  // Where the HTTP API listens. 127.0.0.1 = this machine only (not the internet).
+  API_HOST: z.string().min(1).default("127.0.0.1"),
+  API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
 });
 
 export type Config = z.infer<typeof EnvSchema>;

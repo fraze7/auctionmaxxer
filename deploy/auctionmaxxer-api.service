@@ -1,0 +1,23 @@
+# systemd unit for the HTTP API (separate from the collector).
+#   systemctl status auctionmaxxer-api
+#   journalctl -u auctionmaxxer-api -n 50
+#
+# The API listens on 127.0.0.1 only - it is not reachable from the internet.
+# From your PC, open a tunnel:  ssh -N -L 3001:127.0.0.1:3001 auctionmaxxer
+# then browse to:               http://localhost:3001/api/status
+
+[Unit]
+Description=auctionmaxxer HTTP API
+After=network.target
+
+[Service]
+User=auction
+WorkingDirectory=/opt/auctionmaxxer/server
+ExecStart=/opt/auctionmaxxer/server/node_modules/.bin/tsx src/apiServer.ts
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -43,12 +43,12 @@ ssh "${TARGET}" "
   # Install the systemd units: the collector, and the nightly backup + its timer.
   install -m 644 ${APP_DIR}/deploy/*.service ${APP_DIR}/deploy/*.timer /etc/systemd/system/
   systemctl daemon-reload
-  systemctl enable auctionmaxxer >/dev/null 2>&1
+  systemctl enable auctionmaxxer auctionmaxxer-api >/dev/null 2>&1
   systemctl enable --now auctionmaxxer-backup.timer >/dev/null 2>&1
   if [ -f .env ]; then
-    systemctl restart auctionmaxxer
+    systemctl restart auctionmaxxer auctionmaxxer-api
     sleep 8
-    systemctl --no-pager --lines=12 status auctionmaxxer || true
+    systemctl --no-pager --lines=6 status auctionmaxxer auctionmaxxer-api || true
   else
     echo 'No .env on the server yet - code installed, collector NOT started.'
   fi

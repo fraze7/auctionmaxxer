@@ -2,6 +2,7 @@ import { backfillItems } from "./backfill.js";
 import { collectOnce } from "./collector.js";
 import type { DataSource } from "./dataSource.js";
 import type { Db } from "./db.js";
+import { pruneOldLevels } from "./retention.js";
 
 // One full run: collect the latest snapshot, then look up a batch of item
 // names. Both `npm run collect` (once) and `npm start` (on a schedule) call
@@ -39,6 +40,12 @@ export async function runJob(options: JobOptions): Promise<boolean> {
     case "failed":
       log(`Collect FAILED (recorded as snapshot #${result.snapshotId}): ${result.error}`);
       break;
+  }
+
+  // After storing something new, clear out order-book rows past their keep time.
+  if (result.status === "ok") {
+    const pruned = pruneOldLevels({ db });
+    if (pruned > 0) log(`Pruned ${pruned} old price-level rows`);
   }
 
   // Names are a nice-to-have: a failure here is logged but never fails the run.

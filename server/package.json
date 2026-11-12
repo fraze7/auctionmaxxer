@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "start": "tsx src/scheduler.ts",
+    "api": "tsx src/apiServer.ts",
     "collect": "tsx src/collect.ts",
     "backup": "tsx src/runBackup.ts",
     "try:mock": "tsx src/dev/tryMock.ts"
