@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "start": "tsx src/scheduler.ts",
     "collect": "tsx src/collect.ts",
     "try:mock": "tsx src/dev/tryMock.ts"
   },
