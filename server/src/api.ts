@@ -1,7 +1,7 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import type { Db } from "./db.js";
-import { findDeals } from "./deals.js";
+import { evaluateItem, findDeals } from "./deals.js";
 import { loadSettings } from "./settings.js";
 
 // The HTTP API the web app reads from. It only ever reads our own SQLite
@@ -186,6 +186,17 @@ export function createApp(options: ApiOptions): Express {
     ORDER BY s.taken_at
   `);
 
+  // One item's hourly minimum prices since a given time, for its trend verdict.
+  const itemMins = db.prepare<
+    { itemId: number; houseId: number; since: number },
+    { takenAt: number; minPrice: number }
+  >(`
+    SELECT s.taken_at AS takenAt, p.min_price AS minPrice
+    FROM commodity_prices p
+    JOIN snapshots s ON s.id = p.snapshot_id
+    WHERE p.item_id = @itemId AND s.house_id = @houseId AND s.status = 'ok' AND s.taken_at > @since
+  `);
+
   const snapshotCounts = db.prepare<{ houseId: number; since: number }, { status: string; n: number }>(`
     SELECT status, COUNT(*) AS n
     FROM snapshots
@@ -279,6 +290,21 @@ export function createApp(options: ApiOptions): Express {
     const row = oneItem.get({ itemId, snapshotId: latest?.id ?? -1 });
     if (!row) throw new HttpError(404, `Item ${itemId} has never been seen`);
 
+    // The same verdict the deals list uses (falling / stable / rising), or
+    // null while the item has too little history or isn't on sale right now.
+    let trend = null;
+    if (latest && row.min_price !== null) {
+      const week = itemMins.all({ itemId, houseId, since: latest.taken_at - 7 * DAY_SECONDS });
+      const dayStart = latest.taken_at - DAY_SECONDS;
+      const evaluation = evaluateItem(
+        row.min_price,
+        week.map((p) => p.minPrice),
+        week.filter((p) => p.takenAt > dayStart).map((p) => p.minPrice),
+        loadSettings(db),
+      );
+      trend = evaluation && { ...evaluation, snapshots: week.length };
+    }
+
     res.json({
       id: row.item_id,
       name: row.name,
@@ -287,6 +313,7 @@ export function createApp(options: ApiOptions): Express {
       house: houseId,
       takenAt: latest?.taken_at ?? null,
       price: toPrice(row),
+      trend,
       levels: latest ? itemLevels.all(latest.id, itemId) : [],
     });
   });

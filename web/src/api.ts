@@ -113,3 +113,54 @@ export const api = {
   deals: (params: { show?: string; minProfit?: number; maxQty?: number }) =>
     get<DealsResponse>('/api/deals', params),
 }
+
+// --- One item ----------------------------------------------------------------
+
+export interface PriceLevel {
+  unitPrice: number
+  quantity: number
+}
+
+export interface ItemTrend {
+  recentMedian: number
+  weekMedian: number
+  trendRatio: number
+  trend: Trend
+  expectedSale: number
+  profitPerUnit: number
+  isDeal: boolean
+  snapshots: number
+}
+
+export interface ItemDetail {
+  id: number
+  name: string | null
+  quality: string | null
+  nameStatus: 'ok' | 'pending' | 'missing'
+  house: number
+  takenAt: number | null
+  price: Price | null
+  trend: ItemTrend | null // null = too little history, or not on sale now
+  levels: PriceLevel[] // cheapest first
+}
+
+export interface HistoryPoint {
+  takenAt: number
+  minPrice: number
+  medianPrice: number
+  quantity: number
+  qtyAtMin: number
+  listingCount: number
+}
+
+export interface ItemHistory {
+  id: number
+  house: number
+  days: number
+  points: HistoryPoint[] // oldest first
+}
+
+export const itemApi = {
+  detail: (id: number) => get<ItemDetail>(`/api/items/${id}`),
+  history: (id: number, days: number) => get<ItemHistory>(`/api/items/${id}/history`, { days }),
+}

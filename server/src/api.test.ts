@@ -195,10 +195,33 @@ describe("GET /api/items/:id", () => {
         house: HOUSE,
         takenAt: T0 + HOUR,
         price: { minPrice: 36, medianPrice: 45, quantity: 25, qtyAtMin: 5, listingCount: 2 },
+        trend: null, // two snapshots: not enough history for a verdict
         levels: [
           { unitPrice: 36, quantity: 5 },
           { unitPrice: 45, quantity: 20 },
         ],
+      });
+    });
+  });
+
+  it("includes the trend verdict once there is enough history", async () => {
+    const db = openDb(":memory:");
+    for (let hoursAgo = 60; hoursAgo >= 1; hoursAgo--) {
+      await store(db, NOW - hoursAgo * HOUR, [listing(PEACEBLOOM, 100, 10)]);
+    }
+    await store(db, NOW, [listing(PEACEBLOOM, 60, 25)]);
+
+    await withApi(db, async (get) => {
+      const { body } = await get(`/api/items/${PEACEBLOOM}`);
+      assert.deepEqual(body.trend, {
+        recentMedian: 100,
+        weekMedian: 100,
+        trendRatio: 1,
+        trend: "stable",
+        expectedSale: 95,
+        profitPerUnit: 35,
+        isDeal: true,
+        snapshots: 61,
       });
     });
   });

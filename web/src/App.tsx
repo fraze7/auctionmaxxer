@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
 import { LastUpdated, StaleBanner } from './components/StatusBar.tsx'
 import { DealsPage } from './pages/DealsPage.tsx'
+import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 
 // The frame around every page: header with navigation, the stale-data
@@ -26,6 +27,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DealsPage />} />
           <Route path="/items" element={<ItemsPage />} />
+          <Route path="/item/:id" element={<ItemPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
