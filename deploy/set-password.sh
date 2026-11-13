@@ -46,6 +46,12 @@ printf 'basicauth {\n\t%s %s\n}\n' "${username}" "${hash}" > "${AUTH_FILE}"
 chown root:caddy "${AUTH_FILE}"
 chmod 640 "${AUTH_FILE}"
 
+# The Caddyfile reads the site's address from SITE_HOST. The running service
+# gets it from this file; the check below needs it too, or it always fails.
+set -a
+. /etc/caddy/site.env
+set +a
+
 if ! caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
   cp "${backup}" "${AUTH_FILE}"
   rm -f "${backup}"

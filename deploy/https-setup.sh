@@ -29,9 +29,11 @@ echo "==> Installing config for ${SITE_HOST}"
 install -m 644 "${HERE}/Caddyfile" /etc/caddy/Caddyfile
 install -m 755 "${HERE}/set-password.sh" /usr/local/sbin/auctionmaxxer-set-password
 
-# Tell Caddy's service which address to serve (the Caddyfile reads SITE_HOST).
+# Tell Caddy which address to serve (the Caddyfile reads SITE_HOST). It lives
+# in one small file that both the service and set-password.sh read.
+printf 'SITE_HOST=%s\n' "${SITE_HOST}" > /etc/caddy/site.env
 mkdir -p /etc/systemd/system/caddy.service.d
-printf '[Service]\nEnvironment=SITE_HOST=%s\n' "${SITE_HOST}" > /etc/systemd/system/caddy.service.d/site.conf
+printf '[Service]\nEnvironmentFile=/etc/caddy/site.env\n' > /etc/systemd/system/caddy.service.d/site.conf
 
 # No login yet? Lock the door: a random password that is thrown away at once,
 # so the site is never reachable without one. An existing login is kept.
