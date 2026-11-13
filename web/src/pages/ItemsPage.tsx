@@ -6,7 +6,7 @@ import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
-import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
+import { toWholeNumber, useUpdateUrlParams, useUrlParam } from '../useUrlParam.ts'
 
 // Search every item the collector has seen, with its current price.
 
@@ -54,9 +54,10 @@ const columns: Column<ItemSummary>[] = [
 ]
 
 export function ItemsPage() {
-  const [q, setQ] = useUrlParam('q')
+  const [q] = useUrlParam('q')
   const [pageText, setPageText] = useUrlParam('page')
   const page = Math.max(1, toWholeNumber(pageText) ?? 1)
+  const updateUrl = useUpdateUrlParams()
 
   // What's typed in the box updates instantly; the URL (and so the request)
   // follows 300 ms after the last keystroke. Without this "debounce", typing
@@ -65,11 +66,11 @@ export function ItemsPage() {
   useEffect(() => {
     if (typed === q) return
     const timer = setTimeout(() => {
-      setQ(typed)
-      setPageText('') // a new search starts back on page 1
+      // One update for both values: the new search, and back to page 1.
+      updateUrl({ q: typed, page: '' })
     }, 300)
     return () => clearTimeout(timer) // typing again cancels the pending update
-  }, [typed, q, setQ, setPageText])
+  }, [typed, q, updateUrl])
 
   const search = useQuery({
     queryKey: ['items', q, page],
