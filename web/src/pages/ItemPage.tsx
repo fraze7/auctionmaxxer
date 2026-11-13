@@ -8,6 +8,7 @@ import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatCopperShort, formatCountShort, formatDateTime, formatNumber, formatTrend } from '../format.ts'
 import { useUrlParam } from '../useUrlParam.ts'
+import { RemoveButton, RuleText, useWatchlist, WatchForm, WatchStatus } from '../watchlist.tsx'
 
 // One item: where its price is now, how it got there, and what it would cost
 // to buy a given amount.
@@ -61,6 +62,8 @@ export function ItemPage() {
       </div>
 
       <Stats item={item} />
+
+      <PriceAlert item={item} />
 
       <Card
         title="Price"
@@ -184,6 +187,47 @@ function Stat({ label, hint, children }: { label: string; hint?: string; childre
       <div className="tabular mt-0.5 text-base text-zinc-100">{children}</div>
       {hint && <div className="text-[11px] text-zinc-600">{hint}</div>}
     </div>
+  )
+}
+
+// --- Price alert ---------------------------------------------------------------
+
+// This item's watchlist rules, and the form to add or change one.
+function PriceAlert({ item }: { item: ItemDetail }) {
+  const watchlist = useWatchlist()
+  const mine = watchlist.data?.watches.filter((w) => w.itemId === item.id) ?? []
+
+  return (
+    <Card
+      title="Price alert"
+      subtitle="Checked against every new snapshot; fires once each time the price crosses your number"
+      action={
+        <Link to="/watchlist" className="text-xs text-zinc-500 hover:text-zinc-300">
+          All alerts →
+        </Link>
+      }
+    >
+      {/* key: start the form afresh for another item, and once the saved rules
+          have loaded (so it can pre-fill from them). */}
+      <WatchForm
+        key={`${item.id}-${watchlist.isSuccess}`}
+        itemId={item.id}
+        currentMin={item.price?.minPrice ?? null}
+        existing={mine}
+      />
+      {mine.length > 0 && (
+        <ul className="mt-3 space-y-1 border-t border-zinc-800 pt-3 text-sm">
+          {mine.map((watch) => (
+            <li key={watch.id} className="flex flex-wrap items-center gap-3">
+              <span className="text-zinc-400">{watch.direction === 'below' ? 'Buy alert:' : 'Sell alert:'}</span>
+              <RuleText direction={watch.direction} threshold={watch.threshold} />
+              <WatchStatus watch={watch} />
+              <RemoveButton id={watch.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
 

@@ -223,3 +223,67 @@ export interface FavorResponse {
 export const favorApi = {
   get: (target: number) => get<FavorResponse>('/api/favor', { target }),
 }
+
+// --- Watchlist -----------------------------------------------------------------
+
+export type Direction = 'below' | 'above'
+
+export interface Watch {
+  id: number
+  itemId: number
+  name: string | null
+  quality: string | null
+  direction: Direction
+  threshold: number // copper per unit
+  createdAt: number
+  triggeredAt: number | null // null = the price isn't past the threshold right now
+  currentMin: number | null // null = not listed in the latest snapshot
+}
+
+export interface WatchAlert {
+  id: number
+  itemId: number
+  name: string | null
+  quality: string | null
+  direction: Direction
+  threshold: number
+  price: number
+  takenAt: number
+  notifiedAt: number | null // null = not sent to Discord (yet)
+}
+
+export interface Watchlist {
+  house: number
+  takenAt: number | null
+  discordConfigured: boolean
+  watches: Watch[]
+  alerts: WatchAlert[]
+}
+
+// For requests that change something. GET only reads; POST adds and DELETE
+// removes. The body goes as JSON, which the server insists on.
+async function send<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    })
+  } catch {
+    throw new ApiUnreachableError('Could not reach the API')
+  }
+  if (response.status === 204) return undefined as T // "done, nothing to send back"
+
+  const isJson = response.headers.get('content-type')?.includes('application/json')
+  if (!isJson) throw new ApiUnreachableError('Could not reach the API')
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error ?? `Request failed (${response.status})`)
+  return result as T
+}
+
+export const watchApi = {
+  list: () => get<Watchlist>('/api/watchlist'),
+  save: (rule: { itemId: number; direction: Direction; threshold: number }) =>
+    send<Watch>('POST', '/api/watchlist', rule),
+  remove: (id: number) => send<void>('DELETE', `/api/watchlist/${id}`),
+}

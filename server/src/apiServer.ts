@@ -17,7 +17,14 @@ const db = openDb(config.DB_PATH);
 const webDir = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 const hasWeb = existsSync(webDir);
 
-const app = createApp({ db, defaultHouseId: config.HOUSE_ID, ...(hasWeb ? { webDir } : {}) });
+const app = createApp({
+  db,
+  defaultHouseId: config.HOUSE_ID,
+  // The API only needs to know WHETHER a webhook is set (so the page can say
+  // so). The address itself stays with the collector, which does the sending.
+  discordConfigured: config.DISCORD_WEBHOOK_URL !== undefined,
+  ...(hasWeb ? { webDir } : {}),
+});
 
 // API_HOST defaults to 127.0.0.1: only programs on the same machine can
 // connect. On the server that keeps the API off the public internet; you

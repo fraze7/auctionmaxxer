@@ -29,6 +29,8 @@ async function tick(logSkipped: boolean): Promise<void> {
       rulesetId: config.RULESET_ID,
       houseId: config.HOUSE_ID,
       logSkipped,
+      discordWebhookUrl: config.DISCORD_WEBHOOK_URL,
+      siteUrl: config.SITE_URL,
     });
   } catch (err) {
     // runJob records ordinary failures itself. Anything that still gets here
@@ -40,6 +42,7 @@ async function tick(logSkipped: boolean): Promise<void> {
 
 log(`Collector started: house ${config.HOUSE_ID}, source "${config.DATA_SOURCE}", database ${config.DB_PATH}`);
 log("Checking for a new snapshot every 10 minutes. Press Ctrl+C to stop.");
+log(config.DISCORD_WEBHOOK_URL ? "Watchlist alerts go to Discord." : "No Discord webhook set: alerts show on the site only.");
 
 // Once right away, so a restart doesn't wait up to 10 minutes.
 await tick(true);

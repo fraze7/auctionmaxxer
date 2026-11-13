@@ -4,6 +4,7 @@ import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadSettings } from "./settings.js";
+import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
 // The HTTP API the web app reads from. It only ever reads our own SQLite
 // database - it never calls Blizzard, and it never sees the client secret.
@@ -28,6 +29,8 @@ export interface ApiOptions {
   // Folder holding the built web app (web/dist). When given, the same server
   // that answers /api also serves the pages, so one port does everything.
   webDir?: string;
+  // Whether a Discord webhook is set, so the watchlist page can say so.
+  discordConfigured?: boolean;
 }
 
 // --- Query-string schemas ---------------------------------------------------
@@ -68,6 +71,17 @@ const FavorQuery = z.object({
 });
 
 const ItemParams = z.object({ id: positiveInt });
+
+const WatchlistQuery = z.object({ house: houseParam });
+
+// The body of POST /api/watchlist. Unlike a query string this arrives as real
+// JSON, so the numbers must already be numbers (no z.coerce).
+const WatchBody = z.object({
+  itemId: z.number().int().positive(),
+  direction: z.enum(["below", "above"]),
+  threshold: z.number().int().min(1).max(10_000_000_000), // copper; up to 1,000,000g
+  house: z.number().int().positive().optional(),
+});
 
 // --- Row shapes coming out of SQLite (snake_case, as stored) -----------------
 
@@ -402,6 +416,60 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
+  // --- Watchlist ---------------------------------------------------------------
+  // The first routes that CHANGE something, so two new ideas appear here:
+  //
+  //   * express.json() reads a JSON request body into req.body. It is only
+  //     switched on for these routes, and only accepts small bodies.
+  //   * Because the site's login is sent by the browser automatically, another
+  //     website could try to make your browser send a request here (a "CSRF"
+  //     attack). Insisting on Content-Type: application/json blocks that:
+  //     browsers refuse to send that header, or a DELETE, across sites without
+  //     this server's permission - which it never gives.
+  const jsonBody = express.json({ limit: "10kb" });
+  const requireJson = (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.is("application/json")) return next(new HttpError(415, "Send the request body as JSON"));
+    next();
+  };
+
+  // GET /api/watchlist?house=
+  // Your rules with each item's current price, and the alerts raised so far.
+  app.get("/api/watchlist", (req, res) => {
+    const query = parse(WatchlistQuery, req.query);
+    const houseId = query.house ?? defaultHouseId;
+    res.json({
+      house: houseId,
+      takenAt: latestSnapshot.get(houseId)?.taken_at ?? null,
+      discordConfigured: options.discordConfigured ?? false,
+      watches: listWatches(db, houseId),
+      alerts: listAlerts(db, houseId),
+    });
+  });
+
+  // POST /api/watchlist   { itemId, direction: "below" | "above", threshold }
+  // Adds a rule, or changes the threshold of the one already there.
+  app.post("/api/watchlist", requireJson, jsonBody, (req, res) => {
+    const body = parse(WatchBody, req.body);
+    const watch = saveWatch({
+      db,
+      houseId: body.house ?? defaultHouseId,
+      itemId: body.itemId,
+      direction: body.direction,
+      threshold: body.threshold,
+      now,
+    });
+    if (!watch) throw new HttpError(404, `Item ${body.itemId} has never been seen`);
+    res.status(201).json(watch);
+  });
+
+  // DELETE /api/watchlist/:id
+  // Removes a rule. Its past alerts stay in the history.
+  app.delete("/api/watchlist/:id", (req, res) => {
+    const { id } = parse(ItemParams, req.params);
+    if (!deleteWatch(db, id)) throw new HttpError(404, `No watchlist rule ${id}`);
+    res.status(204).end(); // 204 = done, nothing to send back
+  });
+
   // GET /api/settings
   // The numbers the deals rule is using right now.
   app.get("/api/settings", (_req, res) => {
@@ -429,6 +497,13 @@ export function createApp(options: ApiOptions): Express {
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) {
       res.status(err.status).json({ error: err.message });
+      return;
+    }
+    // express.json() throws its own errors for a body that isn't valid JSON
+    // or is too big. They carry a 4xx status: the caller's mistake, not ours.
+    const status = (err as { status?: unknown } | null)?.status;
+    if (typeof status === "number" && status >= 400 && status < 500) {
+      res.status(status).json({ error: "The request body could not be read" });
       return;
     }
     console.error(err);

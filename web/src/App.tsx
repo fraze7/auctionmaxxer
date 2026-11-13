@@ -4,10 +4,15 @@ import { DealsPage } from './pages/DealsPage.tsx'
 import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
+import { WatchlistPage } from './pages/WatchlistPage.tsx'
+import { useWatchlist } from './watchlist.tsx'
 
 // The frame around every page: header with navigation, the stale-data
 // warning, the current page, and the footer.
 export default function App() {
+  // How many alerts are triggered right now, shown as a number on the tab.
+  const triggered = useWatchlist().data?.watches.filter((w) => w.triggeredAt !== null).length ?? 0
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-zinc-800 bg-zinc-900/60">
@@ -17,6 +22,9 @@ export default function App() {
             <Tab to="/">Deals</Tab>
             <Tab to="/items">Items</Tab>
             <Tab to="/favor">Favor</Tab>
+            <Tab to="/watchlist" badge={triggered}>
+              Watchlist
+            </Tab>
           </nav>
           <span className="ml-auto">
             <LastUpdated />
@@ -31,6 +39,7 @@ export default function App() {
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/favor" element={<FavorPage />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -43,7 +52,7 @@ export default function App() {
 }
 
 // A navigation link that highlights itself when its page is open.
-function Tab({ to, children }: { to: string; children: string }) {
+function Tab({ to, badge = 0, children }: { to: string; badge?: number; children: string }) {
   return (
     <NavLink
       to={to}
@@ -56,6 +65,9 @@ function Tab({ to, children }: { to: string; children: string }) {
       }
     >
       {children}
+      {badge > 0 && (
+        <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-zinc-950">{badge}</span>
+      )}
     </NavLink>
   )
 }

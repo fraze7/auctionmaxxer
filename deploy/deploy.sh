@@ -47,6 +47,8 @@ ssh "${TARGET}" "
   cd ${APP_DIR}/server
   # Install the systemd units: the collector, and the nightly backup + its timer.
   install -m 644 ${APP_DIR}/deploy/*.service ${APP_DIR}/deploy/*.timer /etc/systemd/system/
+  # The command that connects alerts to Discord (see set-webhook.sh).
+  install -m 755 ${APP_DIR}/deploy/set-webhook.sh /usr/local/sbin/auctionmaxxer-set-webhook
   systemctl daemon-reload
   systemctl enable auctionmaxxer auctionmaxxer-api >/dev/null 2>&1
   systemctl enable --now auctionmaxxer-backup.timer >/dev/null 2>&1
