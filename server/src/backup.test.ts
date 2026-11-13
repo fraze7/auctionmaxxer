@@ -1,4 +1,3 @@
-// Tests for the database backup. Uses a real temporary folder, removed afterwards.
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,7 +27,6 @@ describe("backupDatabase", () => {
       assert.equal(result.file, join(dir, "backups", "auctionmaxxer-2026-11-13.db.gz"));
       assert.deepEqual(readdirSync(join(dir, "backups")), ["auctionmaxxer-2026-11-13.db.gz"]);
 
-      // Unzip it and read it back like a restore would.
       const restoredPath = join(dir, "restored.db");
       writeFileSync(restoredPath, gunzipSync(readFileSync(result.file)));
       const restored = new Database(restoredPath, { readonly: true });

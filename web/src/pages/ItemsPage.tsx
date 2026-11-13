@@ -8,13 +8,10 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { toWholeNumber, useUpdateUrlParams, useUrlParam } from '../useUrlParam.ts'
 
-// Search every item the collector has seen, with its current price.
-
 const PAGE_SIZE = 50
 const dash = <span className="text-zinc-600">-</span>
 
-// Sorting happens on the server (by name) because results are paged: sorting
-// only the 50 rows on screen would be misleading. So no sortValue here.
+// No sortValue: results are paged, so sorting happens on the server.
 const columns: Column<ItemSummary>[] = [
   { key: 'item', header: 'Item', render: (i) => <ItemName id={i.id} name={i.name} quality={i.quality} /> },
   {
@@ -59,14 +56,12 @@ export function ItemsPage() {
   const page = Math.max(1, toWholeNumber(pageText) ?? 1)
   const updateUrl = useUpdateUrlParams()
 
-  // What's typed in the box updates instantly; the URL (and so the request)
-  // follows 300 ms after the last keystroke. Without this "debounce", typing
-  // "peacebloom" would fire ten requests.
+  // Debounce: the URL (and the request) follows 300 ms after the last keystroke.
   const [typed, setTyped] = useState(q)
   useEffect(() => {
     if (typed === q) return
     const timer = setTimeout(() => {
-      // One update for both values: the new search, and back to page 1.
+      // One update: the new search, and back to page 1.
       updateUrl({ q: typed, page: '' })
     }, 300)
     return () => clearTimeout(timer) // typing again cancels the pending update

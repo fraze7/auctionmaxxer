@@ -2,18 +2,13 @@ import { summarizeCommodities } from "./aggregate.js";
 import type { DataSource } from "./dataSource.js";
 import type { Db } from "./db.js";
 
-// One collector run: fetch the latest snapshot for one house, summarise it,
-// and store the summaries. v1 tracks commodities only; item (gear) listings
-// are fetched by the source but not stored yet.
-//
-// The collector never knows which DataSource it was given, and it never
-// throws for a bad fetch: a failure becomes a 'failed' row in `snapshots`, so
-// a gap in the history is visible instead of silent.
+// One collector run: fetch a house's latest snapshot, summarise and store it.
+// Commodities only for now. A bad fetch never throws: it is recorded as a
+// 'failed' row so gaps in the history are visible.
 
 const KIND = "commodities";
 
-// Zod errors can list thousands of bad listings. Keep the start, which is
-// enough to see what went wrong, and don't bloat the database.
+// Zod errors can be huge; the start is enough.
 const MAX_ERROR_LENGTH = 2000;
 
 export interface CollectOptions {
@@ -21,17 +16,16 @@ export interface CollectOptions {
   source: DataSource;
   rulesetId: number;
   houseId: number;
-  // Current time in Unix seconds. Only tests pass this, to get fixed times.
+  // Unix seconds. Only tests pass this.
   now?: () => number;
 }
 
 export type CollectResult =
-  // Stored a new snapshot. 'empty' means the house had no commodity listings,
-  // which is normal for some houses and not an error.
+  // 'empty' = the house had no commodity listings, which is not an error.
   | { status: "ok" | "empty"; snapshotId: number; takenAt: number; listingCount: number; itemCount: number }
-  // Blizzard had nothing newer than what we already stored. Nothing written.
+  // Nothing newer than what is stored; nothing written.
   | { status: "skipped"; lastTakenAt: number }
-  // The fetch or the write failed. A 'failed' row was recorded.
+  // A 'failed' row was recorded.
   | { status: "failed"; snapshotId: number; error: string };
 
 export async function collectOnce(options: CollectOptions): Promise<CollectResult> {
@@ -42,8 +36,7 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
     const lastTakenAt = latestTakenAt(db, houseId);
     const snapshot = await source.fetchSnapshot(houseId, lastTakenAt ?? undefined);
 
-    // The source returns null when there's nothing new. The second check
-    // covers a source that hands back an old snapshot anyway.
+    // null = nothing new; the second check covers a source that returns an old snapshot.
     if (lastTakenAt !== null && (snapshot === null || snapshot.takenAt <= lastTakenAt)) {
       return { status: "skipped", lastTakenAt };
     }
@@ -67,13 +60,10 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
       INSERT INTO price_levels (snapshot_id, item_id, level, unit_price, quantity)
       VALUES (?, ?, ?, ?, ?)
     `);
-    // OR IGNORE: an item we've seen before keeps its existing row (and name).
-    // A new one joins the name-backfill queue as 'pending' (the default).
+    // OR IGNORE: known items keep their row; new ones are queued as 'pending'.
     const queueItem = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen) VALUES (?, ?)");
 
-    // Everything for one snapshot goes in a single transaction: if any insert
-    // fails, SQLite undoes all of them, so a half-written snapshot can't exist.
-    // It's also far faster than committing tens of thousands of rows one by one.
+    // One transaction per snapshot: all or nothing, and much faster.
     const snapshotId = db.transaction(() => {
       const { lastInsertRowid } = insertSnapshot.run(
         rulesetId,
@@ -115,8 +105,7 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
   }
 }
 
-// When Blizzard took the newest snapshot we have stored for this house, or
-// null if we have none. Failed rows don't count: their taken_at is NULL.
+// When the newest stored snapshot was taken, or null. Failed rows have no taken_at.
 function latestTakenAt(db: Db, houseId: number): number | null {
   const row = db
     .prepare<[number, string], { takenAt: number | null }>(`

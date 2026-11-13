@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 
-// The game's colour for each item quality.
 const QUALITY_COLOR: Record<string, string> = {
   POOR: 'text-zinc-500',
   COMMON: 'text-zinc-100',
@@ -15,16 +14,12 @@ interface Props {
   id: number
   name: string | null
   quality: string | null
-  // In tables the name links to the item's page. On that page itself, pass
-  // link={false}: a link to the page you're already on is just noise.
+  // Pass false on the item's own page.
   link?: boolean
 }
 
-// An item's name in its quality colour, with a button that copies the name
-// so it can be pasted into the in-game auction search.
-//
-// Items Blizzard has no name for are shown, not hidden: "Unknown item #123",
-// with a Wowhead link so you can look up what it is.
+// An item's name in its quality colour, with copy and Wowhead buttons.
+// Unnamed items show as "Unknown item #123".
 export function ItemName({ id, name, quality, link = true }: Props) {
   const [copied, setCopied] = useState(false)
 
@@ -71,10 +66,8 @@ export function ItemName({ id, name, quality, link = true }: Props) {
   )
 }
 
-// Wowhead's address for an item in WoW: Forever, e.g.
-//   https://www.wowhead.com/forever/item=12365/dense-stone
-// The part after the ID is the name in lowercase with dashes. Wowhead only
-// needs the ID to find the item, so an unnamed item just leaves it off.
+// e.g. https://www.wowhead.com/forever/item=12365/dense-stone
+// The slug is optional, so unnamed items leave it off.
 export function wowheadUrl(id: number, name: string | null): string {
   const base = `https://www.wowhead.com/forever/item=${id}`
   if (name === null) return base

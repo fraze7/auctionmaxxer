@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# One-time setup of a fresh VPS for the auctionmaxxer collector.
-# Runs ON THE SERVER, as root. Safe to run again: every step checks first.
-#
-# From your PC (Git Bash), in the repo root:
+# One-time setup of a fresh VPS. Runs on the server as root; safe to re-run.
 #   ssh root@YOUR_SERVER_IP 'bash -s' < deploy/server-setup.sh
-#
-# What it does:
-#   1. installs Node.js 24 (same major version as the dev PC) and build tools
-#   2. creates an unprivileged user, "auction", that the collector runs as
-#   3. creates /opt/auctionmaxxer, owned by that user
-# It does not copy the code, .env or the database: deploy.sh does the code,
-# and the two private files (.env, the database) are copied by hand once.
+# Installs Node.js 24 and build tools, creates the "auction" user and
+# /opt/auctionmaxxer. Code comes from deploy.sh; .env and the database are
+# copied by hand.
 set -euo pipefail
 
 APP_DIR=/opt/auctionmaxxer
@@ -23,8 +16,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 echo "==> Installing Node.js ${NODE_MAJOR} and build tools"
-# Build tools are a fallback: better-sqlite3 normally downloads a ready-made
-# binary, and only compiles from source if there isn't one for this system.
+# Build tools are only needed if better-sqlite3 has no prebuilt binary.
 if command -v apt-get >/dev/null; then # Ubuntu / Debian
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
@@ -45,8 +37,7 @@ else
 fi
 
 echo "==> Creating user '${APP_USER}' and ${APP_DIR}"
-# A system user with no password and no login shell: if the collector were
-# ever compromised, it could touch its own folder and nothing else.
+# No password and no login shell: the app can only touch its own folder.
 if ! id "${APP_USER}" >/dev/null 2>&1; then
   useradd --system --create-home --shell /usr/sbin/nologin "${APP_USER}"
 fi

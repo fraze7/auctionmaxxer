@@ -1,5 +1,3 @@
-// Unit tests for the aggregation. Run with: npm test
-// Uses Node's built-in test runner (node:test), so there's nothing to install.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { summarizeCommodities } from "./aggregate.js";
@@ -9,7 +7,6 @@ import type { CommodityListing } from "./types.js";
 const PEACEBLOOM = 2447;
 const LINEN = 2589;
 
-// Builds a listing with a unique auction id, so tests only state what matters.
 let nextAuctionId = 1;
 function listing(itemId: number, unitPrice: number, quantity: number): CommodityListing {
   return {
@@ -53,8 +50,7 @@ describe("summarizeCommodities", () => {
   });
 
   it("weights the median by quantity, not by listing", () => {
-    // Two tiny listings at 10c, one big one at 100c. Counting listings, the
-    // median would be 10c. Counting units (2 vs 100), it's 100c.
+    // Counting listings the median would be 10c; counting units it's 100c.
     const [summary] = summarizeCommodities([
       listing(PEACEBLOOM, 10, 1),
       listing(PEACEBLOOM, 10, 1),
@@ -73,8 +69,7 @@ describe("summarizeCommodities", () => {
   });
 
   it("is not thrown off by a troll-priced listing", () => {
-    // 999,999g for one Peacebloom. A mean would land around 100g per unit;
-    // the median must stay at the normal price.
+    // A mean would land near 100g; the median must stay at the normal price.
     const troll = 999_999 * 10_000;
     const [summary] = summarizeCommodities([
       listing(PEACEBLOOM, 38, 40),
@@ -146,8 +141,7 @@ describe("summarizeCommodities", () => {
   });
 });
 
-// The same numbers checked against the game on 9 Nov 2026 (see the build plan):
-// the 16:12 snapshot held 3,581 Peacebloom.
+// Figures checked against the game on 9 Nov 2026.
 describe("summarizeCommodities on the saved fixture", () => {
   it("matches the known Peacebloom figures", async () => {
     const snapshot = await new MockSource().fetchSnapshot(113);
@@ -159,7 +153,7 @@ describe("summarizeCommodities on the saved fixture", () => {
     assert.equal(peacebloom?.quantity, 3581);
     assert.equal(peacebloom?.listingCount, 188);
 
-    // Rules the database enforces with CHECK constraints must hold for every item.
+    // The database's CHECK constraints must hold for every item.
     for (const s of summaries) {
       assert.ok(s.minPrice > 0 && s.medianPrice >= s.minPrice, `prices for item ${s.itemId}`);
       assert.ok(s.qtyAtMin >= 1 && s.qtyAtMin <= s.quantity, `quantities for item ${s.itemId}`);

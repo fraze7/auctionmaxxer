@@ -6,21 +6,17 @@ import { sendPendingAlerts } from "./notify.js";
 import { pruneOldLevels } from "./retention.js";
 import { checkWatches } from "./watchlist.js";
 
-// One full run: collect the latest snapshot, then look up a batch of item
-// names. Both `npm run collect` (once) and `npm start` (on a schedule) call
-// this, so they can never drift apart.
-//
-// Returns false if the collect failed, so a caller can set an exit code.
+// One full run: collect, check the watchlist, send alerts, look up item names.
+// Shared by `npm run collect` and `npm start`. Returns false if the collect failed.
 
 export interface JobOptions {
   db: Db;
   source: DataSource;
   rulesetId: number;
   houseId: number;
-  // Print a line even when there was nothing new. The scheduler turns this
-  // off: it checks every few minutes and would otherwise flood the log.
+  // Log "nothing new" too. The scheduler turns this off.
   logSkipped?: boolean;
-  // Where to send watchlist alerts. Left out = alerts only show on the site.
+  // Left out = alerts only show on the site.
   discordWebhookUrl?: string | undefined;
   siteUrl?: string | undefined;
 }
@@ -47,27 +43,23 @@ export async function runJob(options: JobOptions): Promise<boolean> {
       break;
   }
 
-  // After storing something new, clear out order-book rows past their keep time.
   if (result.status === "ok") {
     const pruned = pruneOldLevels({ db });
     if (pruned > 0) log(`Pruned ${pruned} old price-level rows`);
 
-    // New prices: see whether any watchlist rule has just been crossed.
     const raised = checkWatches({ db, houseId });
     if (raised > 0) log(`Watchlist: ${raised} new alert${raised === 1 ? "" : "s"}`);
   }
 
-  // Tell Discord about alerts it hasn't heard of yet. This runs on every
-  // tick, not only after a new snapshot, for two reasons: a rule added on the
-  // site can fire straight away, and a send that failed gets retried.
-  // Like names below, a failure here is logged but never fails the run.
+  // Every tick, so rules added on the site and failed sends are picked up.
+  // A failure is logged but never fails the run.
   if (options.discordWebhookUrl) {
     const result = await sendPendingAlerts({ db, webhookUrl: options.discordWebhookUrl, siteUrl: options.siteUrl });
     if (result.sent > 0) log(`Discord: sent ${result.sent} alert${result.sent === 1 ? "" : "s"}`);
     if (result.error) log(`Discord: sending failed, will retry next run (${result.error})`);
   }
 
-  // Names are a nice-to-have: a failure here is logged but never fails the run.
+  // A failure here is logged but never fails the run.
   const names = await backfillItems({ db, source });
   if (names.found + names.missing > 0 || names.error) {
     log(

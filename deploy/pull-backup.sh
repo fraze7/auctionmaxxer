@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# Copies the newest database backup from the server to this PC, so a copy
-# exists somewhere other than the server. Runs ON YOUR PC (Git Bash):
+# Copies the newest database backup from the server to server/data/backups/.
+# Run on your PC (Git Bash):
 #   deploy/pull-backup.sh auctionmaxxer
-#
-# Backups land in server/data/backups/ (git-ignored). The server makes one a
-# night and keeps 14; this script only fetches, it never deletes anything.
-#
-# To restore one: gunzip it, and it is a normal SQLite .db file.
+# To restore: gunzip it; the result is a normal SQLite file.
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
@@ -19,8 +15,7 @@ REMOTE_DIR=/opt/auctionmaxxer/server/data/backups
 cd "$(git rev-parse --show-toplevel)"
 mkdir -p server/data/backups
 
-# Names contain the date (auctionmaxxer-2026-11-13.db.gz), so the last one
-# in sorted order is the newest.
+# Dated names sort as text, so the last is the newest.
 NEWEST=$(ssh "${TARGET}" "ls ${REMOTE_DIR} 2>/dev/null | grep -E '^auctionmaxxer-[0-9-]+\.db\.gz$' | sort | tail -1")
 if [ -z "${NEWEST}" ]; then
   echo "No backups on the server yet." >&2
@@ -28,6 +23,6 @@ if [ -z "${NEWEST}" ]; then
 fi
 
 scp -q "${TARGET}:${REMOTE_DIR}/${NEWEST}" "server/data/backups/${NEWEST}"
-# gzip -t checks the file isn't cut short or corrupted.
+# Check the download isn't truncated or corrupt.
 gzip -t "server/data/backups/${NEWEST}"
 echo "Fetched server/data/backups/${NEWEST} ($(du -h "server/data/backups/${NEWEST}" | cut -f1))"

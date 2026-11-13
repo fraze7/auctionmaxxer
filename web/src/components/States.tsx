@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 import { ApiUnreachableError } from '../api.ts'
 
-// What a page shows instead of its table: loading, nothing to show, or an error.
-
 export function LoadingState() {
   return <div className="rounded-lg border border-zinc-800 p-8 text-center text-sm text-zinc-500">Loading…</div>
 }
@@ -17,7 +15,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
 }
 
 export function ErrorState({ error }: { error: unknown }) {
-  // The most common cause by far: the SSH tunnel to the server isn't running.
+  // Usually the SSH tunnel isn't running.
   if (error instanceof ApiUnreachableError) {
     return (
       <div className="rounded-lg border border-red-900 bg-red-950/40 p-6 text-sm">

@@ -1,18 +1,10 @@
-# Caddy is the server's front door to the internet. It does three jobs:
-#   1. HTTPS: it gets (and renews) a free certificate for the site's address
-#      by itself, so the connection is encrypted.
-#   2. Login: it asks for a username and password before letting anyone in.
-#   3. It passes allowed requests on to the app, which still only listens on
-#      127.0.0.1:3001 and is never exposed directly.
-#
-# {$SITE_HOST} is read from an environment variable set by https-setup.sh,
-# so the server's address is not written into the repository.
+# Caddy provides HTTPS (automatic certificate), the login, and a reverse proxy
+# to the app on 127.0.0.1:3001. {$SITE_HOST} is set by https-setup.sh.
 
 {$SITE_HOST} {
 	encode gzip
 
-	# The username and password hash live in their own file, written by
-	# auctionmaxxer-set-password. Every request must pass this login.
+	# Written by auctionmaxxer-set-password.
 	import /etc/caddy/auth.conf
 
 	reverse_proxy 127.0.0.1:3001

@@ -1,14 +1,6 @@
-// The 30 Waylaid Crates and what each one accepts.
-//
-// How crates work: you fill a crate with ANY ONE bundle from its list (not
-// all of them), then hand the sealed crate in for Merchant's Favor.
-//
-// Source: Wowhead's item tooltips for WoW: Forever, read on 13 Nov 2026.
-// Blizzard's API doesn't expose this, so it is kept by hand here. If a patch
-// changes a crate, this file is the only place to update.
-//
-// Bundles name their item rather than give an ID: names are what the tooltip
-// shows, and the planner looks the IDs up in our own `items` table.
+// The 30 Waylaid Crates. A crate is filled with ANY ONE bundle from its list,
+// then handed in for Merchant's Favor. Kept by hand from Wowhead's tooltips
+// (13 Nov 2026) because Blizzard's API doesn't expose it.
 
 export type CrateTier = "Apprentice" | "Journeyman" | "Expert" | "Artisan";
 
@@ -21,16 +13,12 @@ export interface Crate {
   itemId: number; // the Waylaid Crate item itself, bought on the AH
   name: string; // without the "Waylaid Crate: " prefix
   tier: CrateTier;
-  // Crafted-material crates (Fabrics, Ingots, Parts) are uncommon quality and
-  // pay double the favor of raw-material crates (Herbs, Ore, Textiles,
-  // Curiosities), which are common quality.
+  // Crafted crates (Fabrics, Ingots, Parts) pay double the favor of raw ones.
   crafted: boolean;
   bundles: CrateBundle[];
 }
 
-// Favor paid per hand-in, from Wowhead's "A Sealed Crate" quest pages.
-// The Artisan figures were still unknown there; 20 and 40 continue the
-// pattern and are flagged as estimates wherever they are used.
+// Favor per hand-in. The Artisan figures are unconfirmed estimates.
 const FAVOR: Record<CrateTier, { raw: number; crafted: number; estimated: boolean }> = {
   Apprentice: { raw: 5, crafted: 10, estimated: false },
   Journeyman: { raw: 10, crafted: 20, estimated: false },
@@ -43,11 +31,10 @@ export function favorFor(crate: Pick<Crate, "tier" | "crafted">): { favor: numbe
   return { favor: crate.crafted ? row.crafted : row.raw, estimated: row.estimated };
 }
 
-// Shorthand so the table below reads like the tooltips: b(20, "Copper Bar").
 const b = (quantity: number, itemName: string): CrateBundle => ({ quantity, itemName });
 
 export const CRATES: readonly Crate[] = [
-  // --- Raw materials (common quality) ---------------------------------------
+  // --- Raw materials ---
   { itemId: 248682, name: "Apprentice Herbs", tier: "Apprentice", crafted: false,
     bundles: [b(20, "Peacebloom"), b(20, "Silverleaf"), b(10, "Earthroot"), b(10, "Mageroyal"), b(10, "Briarthorn")] },
   { itemId: 248683, name: "Apprentice Ore", tier: "Apprentice", crafted: false,
@@ -88,7 +75,7 @@ export const CRATES: readonly Crate[] = [
   { itemId: 248699, name: "Artisan Curiosities", tier: "Artisan", crafted: false,
     bundles: [b(20, "Dream Dust"), b(4, "Greater Nether Essence"), b(6, "Small Brilliant Shard"), b(2, "Large Brilliant Shard")] },
 
-  // --- Crafted materials (uncommon quality, double favor) --------------------
+  // --- Crafted materials (double favor) ---
   { itemId: 248702, name: "Apprentice Fabrics", tier: "Apprentice", crafted: true,
     bundles: [b(2, "Cured Light Hide"), b(20, "Bolt of Linen Cloth")] },
   { itemId: 248703, name: "Apprentice Ingots", tier: "Apprentice", crafted: true,

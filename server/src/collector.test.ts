@@ -1,4 +1,3 @@
-// Tests for the collector, against a throwaway in-memory database.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { collectOnce } from "./collector.js";
@@ -21,7 +20,7 @@ function collect(db: Db, source: DataSource) {
   return collectOnce({ db, source, rulesetId: RULESET, houseId: HOUSE, now: () => FETCHED_AT });
 }
 
-// A DataSource that returns whatever the test hands it, or throws.
+// Returns whatever the test hands it, or throws.
 function fakeSource(next: () => Snapshot | null): DataSource {
   return {
     listHouses: async () => [{ id: HOUSE, name: "Test house" }],
@@ -67,13 +66,12 @@ describe("collectOnce", () => {
       error: null,
     });
 
-    // Same Peacebloom figures the aggregation test checks, now read from SQLite.
     const peacebloom = db
       .prepare("SELECT min_price, quantity, listing_count FROM commodity_prices WHERE item_id = ?")
       .get(PEACEBLOOM);
     assert.deepEqual(peacebloom, { min_price: 36, quantity: 3581, listing_count: 188 });
 
-    // Level 0 is the cheapest price, and holds exactly qty_at_min units.
+    // Level 0 is the cheapest price and holds exactly qty_at_min units.
     const cheapest = db
       .prepare(`
         SELECT l.unit_price, l.quantity, p.qty_at_min
@@ -150,7 +148,7 @@ describe("collectOnce", () => {
       { status: "failed", taken_at: null, error: "Blizzard returned 503" },
     ]);
 
-    // Failures don't count as "already have it": the next good run still stores.
+    // A failure doesn't count as "already have it".
     const recovered = await collect(db, new MockSource());
     assert.equal(recovered.status, "ok");
     assert.equal(count(db, "snapshots"), 3);
@@ -158,8 +156,7 @@ describe("collectOnce", () => {
 
   it("writes nothing from a snapshot that fails halfway through", async () => {
     const db = openDb(":memory:");
-    // The second listing breaks a database rule (STRICT rejects a fractional
-    // price), after the first item was already inserted in the transaction.
+    // The second listing breaks a database rule after the first was inserted.
     const result = await collect(
       db,
       fakeSource(() =>

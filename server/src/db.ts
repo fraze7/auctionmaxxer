@@ -3,37 +3,29 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
-// The one place that opens the database. Everything else receives a `Db` and
-// never cares where the file lives - tests pass ":memory:" for a throwaway
-// database that exists only while the test runs.
+// The one place that opens the database. Tests pass ":memory:".
 
 export type Db = Database.Database;
 
 const MIGRATIONS_DIR = fileURLToPath(new URL("../migrations/", import.meta.url));
 
-// Opens (or creates) the database and brings its schema up to date.
 export function openDb(path: string): Db {
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true });
   }
   const db = new Database(path);
 
-  // WAL lets the API read while the collector writes, instead of blocking.
+  // WAL lets the API read while the collector writes.
   db.pragma("journal_mode = WAL");
-  // SQLite ignores foreign keys unless asked, and the setting is per
-  // connection - so it has to be switched on here, every time we open.
+  // Foreign keys are off by default and the setting is per connection.
   db.pragma("foreign_keys = ON");
 
   migrate(db);
   return db;
 }
 
-// Runs every .sql file in migrations/ that this database hasn't seen yet, in
-// file-name order (001_, 002_, ...). Returns the names it applied.
-//
-// A migration file is never edited once it has run somewhere: to change the
-// schema, add a new numbered file. The schema_migrations table is how each
-// database remembers which files it already has.
+// Applies migrations/*.sql not yet recorded in schema_migrations, in name order.
+// Never edit a migration that has run: add a new numbered file.
 export function migrate(db: Db, dir: string = MIGRATIONS_DIR): string[] {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -62,13 +54,8 @@ export function migrate(db: Db, dir: string = MIGRATIONS_DIR): string[] {
   for (const file of files) {
     if (alreadyApplied.has(file)) continue;
     const sql = readFileSync(join(dir, file), "utf8");
-    // One transaction per file: a migration either fully applies and is
-    // recorded, or leaves no trace. Never half a schema.
-    //
-    // .immediate() takes the database's write lock up front. The collector
-    // and the API both run migrations when they start, and a deploy restarts
-    // them together - so the second one waits here, then sees (re-checking
-    // inside the lock) that the first already did the work.
+    // One transaction per file. .immediate() takes the write lock first, because the
+    // collector and API both migrate at start-up: the second waits, then re-checks.
     const ran = db
       .transaction(() => {
         if (isApplied.get(file)?.n) return false;

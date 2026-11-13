@@ -1,8 +1,6 @@
 import { toCoins } from '../format.ts'
 
-// Shows a copper amount the way the game does: 12g 34s 56c.
-// Leading zero parts are dropped (so 56 copper is just "56c"), and the
-// letters are tinted gold, silver and copper.
+// A copper amount as the game shows it: 12g 34s 56c, leading zero parts dropped.
 export function PriceTag({ copper }: { copper: number }) {
   const coins = toCoins(copper)
   const showGold = coins.gold > 0

@@ -1,25 +1,14 @@
 import type { Db } from "./db.js";
 import type { Settings } from "./settings.js";
 
-// The trend-aware deals rule from the build plan.
-//
-// For one item, given its hourly minimum prices over the last 7 days:
-//   1. Fewer than `dealMinSnapshots` points -> not enough history, no verdict.
-//   2. recent = median of the last 24 hours; week = median of the last 7 days.
-//   3. trend = recent / week. Below 0.85 the market is FALLING: never a deal,
-//      however cheap it looks, because "cheap" is just where the price is
-//      heading. Above 1.15 it is rising.
-//   4. Expected sale price = the LOWER of recent and week, minus the AH cut.
-//      Taking the lower one stops a one-off spike flattering the deal.
-//   5. Profit per unit = expected sale - current min. It's a deal when that
-//      reaches the minimum profit AND current min <= 80% of recent.
-//   6. Rank by profit per unit x the units available at that price (capped
-//      at how many you'd actually buy).
-//
-// The thresholds are starting guesses and live in the settings table.
-//
-// The rule itself (evaluateItem) is a pure function: numbers in, verdict out.
-// findDeals wraps it with the database queries.
+// The trend-aware deals rule, from an item's hourly minimum prices over 7 days:
+//   1. Fewer than dealMinSnapshots points: no verdict.
+//   2. recent = 24h median, week = 7d median, trend = recent / week.
+//   3. A falling trend (< 0.85) is never a deal; > 1.15 is rising.
+//   4. Expected sale = the lower of recent and week, minus the AH cut.
+//   5. A deal when profit reaches the minimum and current min <= 80% of recent.
+//   6. Ranked by profit per unit x units at that price (capped at maxQty).
+// Thresholds live in the settings table.
 
 const DAY_SECONDS = 24 * 60 * 60;
 const WEEK_SECONDS = 7 * DAY_SECONDS;
@@ -33,13 +22,11 @@ export interface ItemEvaluation {
   trend: Trend;
   expectedSale: number; // copper per unit, after the AH cut
   profitPerUnit: number; // copper; can be negative
-  // Cheap enough against the 24-hour median, and not in a falling market.
-  // (The minimum-profit test is applied separately, per request.)
+  // The minimum-profit test is applied separately, per request.
   isDeal: boolean;
 }
 
-// Middle value of a list of whole numbers. With an even count there are two
-// middle values; we average them and round down, to stay in whole copper.
+// An even count averages the two middle values, rounded down.
 export function median(values: readonly number[]): number {
   if (values.length === 0) throw new Error("median of an empty list");
   const sorted = [...values].sort((a, b) => a - b);
@@ -49,9 +36,7 @@ export function median(values: readonly number[]): number {
   return Math.floor(((sorted[mid - 1] as number) + upper) / 2);
 }
 
-// Applies the rule to one item. `weekMins` are its hourly minimum prices over
-// the last 7 days and `dayMins` the subset from the last 24 hours.
-// Returns null when there isn't enough history to judge.
+// `dayMins` is the last-24h subset of `weekMins`. null = not enough history.
 export function evaluateItem(
   currentMin: number,
   weekMins: readonly number[],
@@ -66,7 +51,7 @@ export function evaluateItem(
   const trend: Trend =
     trendRatio < settings.dealTrendFalling ? "falling" : trendRatio > settings.dealTrendRising ? "rising" : "stable";
 
-  // Round the sale price down: never promise copper you might not get.
+  // Rounded down: never promise copper you might not get.
   const expectedSale = Math.floor(Math.min(recentMedian, weekMedian) * (1 - settings.ahCut));
   const profitPerUnit = expectedSale - currentMin;
   const cheapEnough = currentMin <= recentMedian * settings.dealMaxPriceRatio;
@@ -97,8 +82,7 @@ export interface FindDealsOptions {
   db: Db;
   houseId: number;
   settings: Settings;
-  // "deals": items that pass the rule. "falling": items in a falling market,
-  // which are never deals - shown separately so you can see what's dropping.
+  // "falling" lists items in a falling market, which are never deals.
   show: "deals" | "falling";
   minProfit: number; // copper per unit; only applies to show = "deals"
   maxQty?: number; // most units you'd buy of one item
@@ -124,8 +108,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     .get(houseId);
   if (!latest) return { takenAt: null, snapshotsInWindow: 0, itemsJudged: 0, deals: [] };
 
-  // The 7-day and 24-hour windows end at the latest snapshot, not at "now",
-  // so the maths stays the same if the collector was down for a while.
+  // Windows end at the latest snapshot, not now, so downtime doesn't skew them.
   const weekStart = latest.taken_at - WEEK_SECONDS;
   const dayStart = latest.taken_at - DAY_SECONDS;
 
@@ -137,15 +120,12 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
       `)
       .get(houseId, weekStart)?.n ?? 0;
 
-  // Not even one item can have enough history yet: skip the heavy query.
+  // Too little history for any item: skip the heavy query.
   if (snapshotsInWindow < settings.dealMinSnapshots) {
     return { takenAt: latest.taken_at, snapshotsInWindow, itemsJudged: 0, deals: [] };
   }
 
-  // Every price point of the last week, for every item. That is at most
-  // 168 snapshots x ~1,200 items = ~200,000 small rows, which SQLite and
-  // JavaScript handle in a fraction of a second. Medians are awkward in SQL,
-  // so the grouping and the rule run in JavaScript.
+  // Up to ~200,000 rows. Medians are awkward in SQL, so the rule runs in JS.
   const points = db
     .prepare<[number, number], { item_id: number; taken_at: number; min_price: number }>(`
       SELECT p.item_id, s.taken_at, p.min_price
@@ -166,7 +146,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     if (point.taken_at > dayStart) entry.day.push(point.min_price);
   }
 
-  // Only items on sale right now can be bought, so start from the latest snapshot.
+  // Only items on sale now can be bought.
   const current = db
     .prepare<
       [number],

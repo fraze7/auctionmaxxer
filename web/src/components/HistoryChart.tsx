@@ -3,18 +3,10 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { HistoryPoint } from '../api.ts'
 import { formatDateTime } from '../format.ts'
 
-// A line chart over an item's snapshot history. The item page uses it three
-// times: once for prices (two lines) and once each for quantity and listings.
-//
-// Design rules it follows:
-//   * One y-axis per chart. Prices and quantities are different units, so
-//     they get separate charts rather than two scales squeezed into one.
-//   * Each line has a fixed colour that means the same thing everywhere.
-//   * Grid and axes are faint; the data is what stands out.
-//   * Hovering shows a crosshair and the exact values at that snapshot.
+// A line chart over an item's snapshot history. One y-axis per chart, so
+// prices and quantities get separate charts.
 
-// Colours picked from a palette checked for colour-blind separation and for
-// contrast against this dark background.
+// Checked for colour-blind separation and contrast on the dark background.
 export const SERIES_COLOR = {
   min: '#3987e5', // blue
   median: '#d95926', // orange
@@ -44,7 +36,7 @@ export function HistoryChart({ points, series, height, formatAxis, renderValue }
   const last = points[points.length - 1]
   if (!first || !last) return null
 
-  // Under two days of data: label the x-axis with times. Otherwise with dates.
+  // Under two days of data the x-axis shows times, otherwise dates.
   const spanHours = (last.takenAt - first.takenAt) / HOUR
   const formatTick = (unixSeconds: number) => {
     const date = new Date(unixSeconds * 1000)
@@ -53,8 +45,7 @@ export function HistoryChart({ points, series, height, formatAxis, renderValue }
       : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   }
 
-  // With only a handful of points a bare line is hard to read (and one point
-  // draws nothing at all), so mark each point until the chart fills up.
+  // Mark each point while there are too few for a line to read well.
   const showDots = points.length <= 36
 
   return (
@@ -92,9 +83,7 @@ export function HistoryChart({ points, series, height, formatAxis, renderValue }
             tickLine={false}
             axisLine={false}
             width={48}
-            // Start a little below the lowest value instead of at zero: price
-            // moves of a few percent are the whole point and would otherwise
-            // be flattened. The axis labels make the range explicit.
+            // Not from zero: small price moves would be flattened.
             domain={['auto', 'auto']}
           />
           <Tooltip
@@ -111,8 +100,7 @@ export function HistoryChart({ points, series, height, formatAxis, renderValue }
               name={s.label}
               stroke={s.color}
               strokeWidth={2}
-              // Straight segments between snapshots: we don't know what the
-              // price did in between, so we don't draw a curve implying we do.
+              // Straight segments: we don't know what happened between snapshots.
               type="linear"
               dot={showDots ? { r: 3, fill: s.color, strokeWidth: 0 } : false}
               activeDot={{ r: 5, stroke: '#09090b', strokeWidth: 2 }}
@@ -125,8 +113,7 @@ export function HistoryChart({ points, series, height, formatAxis, renderValue }
   )
 }
 
-// Recharts hands the tooltip a loosely typed bundle; this digs out the data
-// point under the cursor, or undefined when the mouse isn't over the chart.
+// Digs the hovered data point out of Recharts' loosely typed tooltip props.
 function hoveredPoint(props: unknown): HistoryPoint | undefined {
   const { active, payload } = props as { active?: boolean; payload?: ReadonlyArray<{ payload?: HistoryPoint }> }
   return active ? payload?.[0]?.payload : undefined

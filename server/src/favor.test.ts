@@ -1,5 +1,3 @@
-// Tests for the Merchant's Favor planner: the pure costing first, then the
-// database loader, then the crate table itself.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { collectOnce } from "./collector.js";
@@ -22,7 +20,7 @@ describe("costToBuy", () => {
   });
 
   it("skips units an earlier purchase already took", () => {
-    // The first 5 (at 10c) are gone, so 5 more cost 20c each.
+    // The first 5 (at 10c) are gone.
     assert.equal(costToBuy(peacebloom, 5, 5), 100);
     assert.equal(costToBuy(peacebloom, 4, 8), 2 * 20 + 2 * 50);
   });
@@ -35,7 +33,7 @@ describe("costToBuy", () => {
   });
 });
 
-// Two small crates to plan with. IDs: crates 1 and 2, materials 11, 12, 21.
+// Crates 1 and 2; materials 11, 12 and 21.
 const HERBS: ResolvedCrate = {
   itemId: 1,
   name: "Test Herbs",
@@ -219,7 +217,7 @@ describe("loadFavorData", () => {
       { unitPrice: 35, quantity: 40 },
     ]);
 
-    // End to end: one crate at 217c + 20 ore (15 x 30c + 5 x 35c) for 5 favor.
+    // One crate at 217c + 20 ore for 5 favor.
     const priced = priceCrates(data.crates, data.books).find((c) => c.itemId === 248683);
     assert.equal(priced?.best?.totalCost, 217 + 15 * 30 + 5 * 35);
   });

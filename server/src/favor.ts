@@ -1,38 +1,23 @@
 import { CRATES, favorFor, type Crate, type CrateTier } from "./crates.js";
 import type { Db } from "./db.js";
 
-// Works out the cheapest way to turn gold into Merchant's Favor.
-//
-// One "fill" = buy one Waylaid Crate + buy one bundle of materials for it,
-// then hand it in for favor. Its price is gold per favor.
-//
-// Two things make this more than a division:
-//   * Each crate accepts several alternative bundles, so we price them all
-//     and take the cheapest.
-//   * Prices rise as you buy. The 1st crate of Peacebloom costs less than the
-//     30th, because the cheap listings run out. So everything is priced by
-//     walking the order book (the price levels the collector stores), and the
-//     planner re-prices every option after each purchase.
-//
-// The costing and planning (priceCrates, planFavor) are pure functions over
-// order books. loadFavorData wraps them with the database queries.
+// Finds the cheapest way to turn gold into Merchant's Favor.
+// A "fill" is one Waylaid Crate plus one bundle of materials. Prices rise as
+// you buy, so everything is priced by walking the order book and the planner
+// re-prices after each purchase.
 
-// One step of an order book: `quantity` units on sale at `unitPrice` copper.
 export interface BookLevel {
   unitPrice: number;
   quantity: number;
 }
 
-// An item's order book, cheapest first. Only the cheapest levels are stored
-// (20 by default), so a book can run out before the market really does.
+// Cheapest first. Only the cheapest levels are stored, so a book can run out early.
 export type Book = readonly BookLevel[];
 
-// Order books by item ID. An item with no entry isn't on sale.
+// An item with no entry isn't on sale.
 export type Books = ReadonlyMap<number, Book>;
 
-// What it costs to buy `quantity` units, skipping the first `alreadyBought`
-// units (which an earlier step of the plan has taken). Returns null when the
-// book doesn't hold that many.
+// Cost of `quantity` units after skipping `alreadyBought`; null if too few are listed.
 export function costToBuy(book: Book | undefined, quantity: number, alreadyBought = 0): number | null {
   if (!book) return null;
   let toSkip = alreadyBought;
@@ -54,8 +39,7 @@ export function costToBuy(book: Book | undefined, quantity: number, alreadyBough
   return null;
 }
 
-// A crate's bundle with its item looked up. itemId is null when we have
-// never seen an item of that name (it can't be priced).
+// itemId is null when no item of that name has been seen.
 export interface ResolvedBundle {
   itemId: number | null;
   itemName: string;
@@ -72,7 +56,7 @@ export interface ResolvedCrate {
   bundles: ResolvedBundle[];
 }
 
-// The cheapest way to do one fill of a crate, given what has been bought so far.
+// The cheapest single fill of a crate, given what has been bought so far.
 interface FillQuote {
   bundleIndex: number;
   crateCost: number;
@@ -97,7 +81,7 @@ function quoteFill(crate: ResolvedCrate, books: Books, bought: ReadonlyMap<numbe
   return best;
 }
 
-// --- The crate table: what one fill of each crate costs right now -------------
+// --- The crate table ---
 
 export interface PricedBundle extends ResolvedBundle {
   cost: number | null; // copper for the whole bundle; null = can't buy that many
@@ -108,7 +92,7 @@ export interface PricedCrate extends Omit<ResolvedCrate, "bundles"> {
   cratePrice: number | null; // cheapest crate on sale
   cratesListed: number;
   bundles: PricedBundle[];
-  // The cheapest fill, or null when the crate or all its bundles are unavailable.
+  // null when the crate or all its bundles are unavailable.
   best: (FillQuote & { copperPerFavor: number }) | null;
 }
 
@@ -133,7 +117,7 @@ export function priceCrates(crates: readonly ResolvedCrate[], books: Books): Pri
   });
 }
 
-// --- The plan: cheapest way to reach a favor target ---------------------------
+// --- The plan ---
 
 export interface PlanStep {
   crateId: number;
@@ -152,21 +136,16 @@ export interface FavorPlan {
   target: number;
   favor: number; // favor the plan earns (can overshoot the target)
   totalCost: number;
-  // False when the market ran out before the target was reached.
+  // False when the market ran out before the target.
   complete: boolean;
   steps: PlanStep[];
 }
 
-// A safety stop, far above anything sensible: 2,000 fills is 10,000+ favor.
+// A safety stop, far above any sensible target.
 const MAX_FILLS = 2000;
 
-// Greedy plan: repeatedly do whichever single fill is cheapest per favor at
-// that moment, mark those listings as bought, and re-price. Because each
-// purchase makes that crate's next fill dearer, the plan naturally spreads
-// across several crates instead of piling into one.
-//
-// Greedy isn't perfectly optimal (the last fill can overshoot the target with
-// a big crate where a small one would do) but it is close, and easy to follow.
+// Greedy: repeatedly take the cheapest fill per favor, mark it bought, re-price.
+// Not perfectly optimal (the last fill can overshoot) but close.
 export function planFavor(crates: readonly ResolvedCrate[], books: Books, target: number): FavorPlan {
   const bought = new Map<number, number>();
   const steps = new Map<string, PlanStep>();
@@ -178,7 +157,7 @@ export function planFavor(crates: readonly ResolvedCrate[], books: Books, target
     for (const crate of crates) {
       const quote = quoteFill(crate, books, bought);
       if (!quote) continue;
-      // Compare cost/favor as cross-products to stay in whole numbers.
+      // Cross-multiply to compare cost per favor in whole numbers.
       if (!pick || quote.totalCost * pick.crate.favor < pick.quote.totalCost * crate.favor) {
         pick = { crate, quote };
       }
@@ -194,7 +173,7 @@ export function planFavor(crates: readonly ResolvedCrate[], books: Books, target
     favor += crate.favor;
     totalCost += quote.totalCost;
 
-    // Fills of the same crate with the same bundle are shown as one line.
+    // Repeat fills of the same crate and bundle share one line.
     const key = `${crate.itemId}:${bundle.itemId}`;
     const step = steps.get(key);
     if (step) {
@@ -220,7 +199,7 @@ export function planFavor(crates: readonly ResolvedCrate[], books: Books, target
   return { target, favor, totalCost, complete: favor >= target, steps: [...steps.values()] };
 }
 
-// --- Database side ------------------------------------------------------------
+// --- Database side ---
 
 export interface FavorData {
   takenAt: number | null;
@@ -228,8 +207,7 @@ export interface FavorData {
   books: Map<number, BookLevel[]>;
 }
 
-// Looks up every bundle item by name and loads the order books of everything
-// involved from the latest snapshot.
+// Resolves bundle names to item IDs and loads their order books.
 export function loadFavorData(db: Db, houseId: number, crateList: readonly Crate[] = CRATES): FavorData {
   const latest = db
     .prepare<[number], { id: number; taken_at: number }>(`
@@ -239,8 +217,7 @@ export function loadFavorData(db: Db, houseId: number, crateList: readonly Crate
     `)
     .get(houseId);
 
-  // If two items share a name, prefer the one that is actually on sale in the
-  // latest snapshot (then the lower ID, to be deterministic).
+  // If two items share a name, prefer the one on sale, then the lower ID.
   const findItem = db.prepare<{ name: string; snapshotId: number }, { item_id: number }>(`
     SELECT i.item_id
     FROM items i
@@ -275,8 +252,7 @@ export function loadFavorData(db: Db, houseId: number, crateList: readonly Crate
       wanted.add(crate.itemId);
       for (const bundle of crate.bundles) if (bundle.itemId !== null) wanted.add(bundle.itemId);
     }
-    // One query for the whole snapshot's levels of these items. The IDs are
-    // our own integers, so building the IN (...) list is safe.
+    // The IDs are our own integers, so building the IN (...) list is safe.
     const rows = db
       .prepare<[number], { item_id: number; unitPrice: number; quantity: number }>(`
         SELECT item_id, unit_price AS unitPrice, quantity

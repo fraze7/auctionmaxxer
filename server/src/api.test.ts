@@ -1,5 +1,4 @@
-// Tests for the HTTP API. Each test gets a fresh in-memory database, seeded
-// through the real collector, and a real server on a throwaway port.
+// Each test gets a fresh in-memory database and a real server on a throwaway port.
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { describe, it } from "node:test";
@@ -47,7 +46,6 @@ async function seededDb(): Promise<Db> {
   return db;
 }
 
-// Starts the app on a free port, runs the test, and always shuts it down.
 async function withApi(db: Db, run: (get: (path: string) => Promise<{ status: number; body: any }>) => Promise<void>) {
   const app = createApp({ db, defaultHouseId: HOUSE, now: () => NOW });
   const server = app.listen(0, "127.0.0.1");
@@ -118,7 +116,7 @@ describe("GET /api/items", () => {
       assert.equal(body.total, 3);
       assert.equal(body.takenAt, T0 + HOUR);
       assert.deepEqual(body.items, [
-        // Linen Cloth is not in the latest snapshot: still listed, no price.
+        // Not in the latest snapshot: still listed, no price.
         { id: LINEN, name: "Linen Cloth", quality: "COMMON", price: null },
         {
           id: PEACEBLOOM,
@@ -271,7 +269,7 @@ describe("GET /api/items/:id/history", () => {
   });
 
   it("only goes back as many days as asked", async () => {
-    // Three days old goes in first: the collector only accepts newer snapshots.
+    // Oldest first: the collector only accepts newer snapshots.
     const db = openDb(":memory:");
     await store(db, NOW - 3 * 24 * HOUR, [listing(PEACEBLOOM, 99, 1)]);
     await store(db, NOW - HOUR, [listing(PEACEBLOOM, 36, 1)]);
@@ -332,7 +330,6 @@ describe("GET /api/deals", () => {
       assert.equal(deal.buyQty, 20); // capped by maxQty
       assert.equal(deal.totalProfit, 700);
 
-      // A higher bar than the profit on offer hides it.
       assert.deepEqual((await get("/api/deals?minProfit=36")).body.deals, []);
     });
   });

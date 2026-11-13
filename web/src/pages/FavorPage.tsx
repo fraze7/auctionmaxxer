@@ -8,19 +8,14 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
-// The cheapest way to turn gold into Merchant's Favor.
-//
-// Favor comes from Waylaid Crates: buy a crate, fill it with any ONE of the
-// bundles it accepts, hand it in. The server prices every crate and bundle at
-// current auction prices (server/src/favor.ts); this page shows a shopping
-// plan for the amount of favor you want, and the full crate table below it.
+// The cheapest way to turn gold into Merchant's Favor: a shopping plan for a
+// target amount, then every crate. Priced on the server (server/src/favor.ts).
 
 const DEFAULT_TARGET = 90 // the dearest recipes cost 90
 const PRESETS = [30, 60, 90, 300]
 
 export function FavorPage() {
-  // An empty box means the default: it shows as the placeholder, and the URL
-  // stays clean. (Snapping the text back to 90 would fight you while typing.)
+  // An empty box means the default, shown as the placeholder.
   const [targetText, setTargetText] = useUrlParam('target')
   const parsed = toWholeNumber(targetText)
   const target = parsed && parsed <= 5000 ? parsed : DEFAULT_TARGET
@@ -86,7 +81,7 @@ export function FavorPage() {
   )
 }
 
-// --- The shopping plan ----------------------------------------------------------
+// --- The shopping plan ---
 
 function Plan({ data }: { data: FavorResponse }) {
   const { plan } = data
@@ -172,7 +167,7 @@ function Plan({ data }: { data: FavorResponse }) {
   )
 }
 
-// --- Every crate, one fill each --------------------------------------------------
+// --- Every crate, one fill each ---
 
 const columns: Column<FavorCrate>[] = [
   {
@@ -268,8 +263,7 @@ function CrateTable({ crates }: { crates: FavorCrate[] }) {
   )
 }
 
-// The crate's bundles on one line: the cheapest first and bright, the
-// alternatives dimmed behind it with their price on hover.
+// Cheapest bundle first; the alternatives are dimmed.
 function Bundles({ crate }: { crate: FavorCrate }) {
   const bestIndex = crate.best?.bundleIndex
   const ordered = crate.bundles
@@ -299,7 +293,7 @@ function Bundles({ crate }: { crate: FavorCrate }) {
   )
 }
 
-// --- Small pieces ----------------------------------------------------------------
+// --- Small pieces ---
 
 function Notes({ anyEstimated }: { anyEstimated: boolean }) {
   return (

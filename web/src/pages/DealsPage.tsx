@@ -7,9 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber, formatTrend } from '../format.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
-// The deals list: items priced well below their recent typical price, in a
-// market that isn't simply falling. The rule itself runs on the server
-// (server/src/deals.ts); this page sets the filters and shows the result.
+// The deals list. The rule runs on the server (server/src/deals.ts).
 
 const TREND_STYLE: Record<Trend, string> = {
   falling: 'text-red-400',
@@ -91,7 +89,7 @@ const columns: Column<Deal>[] = [
 ]
 
 export function DealsPage() {
-  // Filters live in the URL, so a bookmarked view opens exactly as you left it.
+  // Filters live in the URL, so views can be bookmarked.
   const [show, setShow] = useUrlParam('show', 'deals')
   const [minProfitText, setMinProfitText] = useUrlParam('minProfit')
   const [maxQtyText, setMaxQtyText] = useUrlParam('maxQty')
@@ -166,7 +164,6 @@ export function DealsPage() {
 }
 
 function Results({ data }: { data: DealsResponse }) {
-  // Not enough history yet: say so, with progress, instead of a blank table.
   if (!data.history.ready) {
     const { snapshots, needed } = data.history
     const percent = Math.min(100, Math.round((snapshots / needed) * 100))
@@ -244,7 +241,7 @@ function NumberField({ label, value, onChange, placeholder, preview }: NumberFie
         inputMode="numeric"
         value={value}
         placeholder={placeholder}
-        // Keep digits only, so the URL never carries something the API rejects.
+        // Digits only, so the URL never carries something the API rejects.
         onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
         className="tabular mt-1 w-44 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
       />

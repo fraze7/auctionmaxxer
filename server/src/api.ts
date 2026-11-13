@@ -6,16 +6,9 @@ import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadSettings } from "./settings.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
-// The HTTP API the web app reads from. It only ever reads our own SQLite
-// database - it never calls Blizzard, and it never sees the client secret.
-//
-// `createApp` builds the Express app but doesn't start listening. That split
-// lets tests start it on a throwaway port, and apiServer.ts start it for real.
-//
-// Conventions:
-//   * JSON out is camelCase; prices are integer copper; times are Unix seconds.
-//   * Bad input -> 400 with { error }. Unknown thing -> 404 with { error }.
-//   * Every route takes an optional ?house=, defaulting to the configured one.
+// The HTTP API the web app reads from. It only reads our own database.
+// JSON is camelCase; prices are integer copper; times are Unix seconds.
+// Bad input -> 400, unknown thing -> 404, both with { error }.
 
 const KIND = "commodities";
 const STALE_AFTER_SECONDS = 2 * 60 * 60; // no new snapshot for 2h = stale data
@@ -24,18 +17,14 @@ const DAY_SECONDS = 24 * 60 * 60;
 export interface ApiOptions {
   db: Db;
   defaultHouseId: number;
-  // Current time in Unix seconds. Only tests pass this.
+  // Unix seconds. Only tests pass this.
   now?: () => number;
-  // Folder holding the built web app (web/dist). When given, the same server
-  // that answers /api also serves the pages, so one port does everything.
+  // The built web app (web/dist), served alongside /api when given.
   webDir?: string;
-  // Whether a Discord webhook is set, so the watchlist page can say so.
   discordConfigured?: boolean;
 }
 
-// --- Query-string schemas ---------------------------------------------------
-// Query values always arrive as strings; z.coerce turns "50" into 50 and
-// rejects "abc". Each schema also sets the defaults and limits for a route.
+// --- Query-string schemas (values arrive as strings, hence z.coerce) ---
 
 const positiveInt = z.coerce.number().int().positive();
 const houseParam = positiveInt.optional();
@@ -66,7 +55,7 @@ const DealsQuery = z.object({
 
 const FavorQuery = z.object({
   house: houseParam,
-  // How much Merchant's Favor you want. Recipes cost 30, 60 or 90.
+  // Recipes cost 30, 60 or 90 favor.
   target: z.coerce.number().int().min(1).max(5000).default(90),
 });
 
@@ -74,8 +63,7 @@ const ItemParams = z.object({ id: positiveInt });
 
 const WatchlistQuery = z.object({ house: houseParam });
 
-// The body of POST /api/watchlist. Unlike a query string this arrives as real
-// JSON, so the numbers must already be numbers (no z.coerce).
+// A JSON body, so numbers must already be numbers (no z.coerce).
 const WatchBody = z.object({
   itemId: z.number().int().positive(),
   direction: z.enum(["below", "above"]),
@@ -83,7 +71,7 @@ const WatchBody = z.object({
   house: z.number().int().positive().optional(),
 });
 
-// --- Row shapes coming out of SQLite (snake_case, as stored) -----------------
+// --- Row shapes from SQLite (snake_case, as stored) ---
 
 interface SnapshotRow {
   id: number;
@@ -107,7 +95,7 @@ interface ItemRow extends PriceRow {
   status: string;
 }
 
-// A request we can't serve as asked. The error handler turns it into JSON.
+// Turned into a JSON error by the error handler.
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -117,7 +105,7 @@ class HttpError extends Error {
   }
 }
 
-// Checks input against a schema; a mismatch becomes a 400 with zod's message.
+// A schema mismatch becomes a 400.
 function parse<S extends z.ZodType>(schema: S, input: unknown): z.infer<S> {
   const result = schema.safeParse(input);
   if (!result.success) {
@@ -127,7 +115,7 @@ function parse<S extends z.ZodType>(schema: S, input: unknown): z.infer<S> {
   return result.data;
 }
 
-// Price columns -> the JSON shape, or null when the item isn't listed right now.
+// null when the item isn't listed right now.
 function toPrice(row: PriceRow) {
   if (row.min_price === null) return null;
   return {
@@ -139,8 +127,7 @@ function toPrice(row: PriceRow) {
   };
 }
 
-// In a LIKE pattern, % and _ are wildcards. Escape them so a search for
-// "50%" looks for those characters instead of matching everything.
+// Escape LIKE's wildcards (% and _) so they match literally.
 function likePattern(text: string): string {
   return `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
 }
@@ -149,7 +136,6 @@ export function createApp(options: ApiOptions): Express {
   const { db, defaultHouseId } = options;
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
 
-  // Statements are prepared once here, not on every request.
   const latestSnapshot = db.prepare<[number], SnapshotRow>(`
     SELECT id, taken_at, fetched_at, listing_count
     FROM snapshots
@@ -158,9 +144,7 @@ export function createApp(options: ApiOptions): Express {
     LIMIT 1
   `);
 
-  // Search runs over every item we've ever seen, joined to its price in the
-  // latest snapshot. An item that isn't listed right now still shows up, with
-  // price: null - LEFT JOIN keeps the item when there's no matching price row.
+  // LEFT JOIN: items not listed right now still appear, with price: null.
   const SEARCH_WHERE = `
     @q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q
   `;
@@ -207,7 +191,7 @@ export function createApp(options: ApiOptions): Express {
     ORDER BY s.taken_at
   `);
 
-  // One item's hourly minimum prices since a given time, for its trend verdict.
+  // Hourly minimum prices, for the trend verdict.
   const itemMins = db.prepare<
     { itemId: number; houseId: number; since: number },
     { takenAt: number; minPrice: number }
@@ -238,8 +222,7 @@ export function createApp(options: ApiOptions): Express {
   const app = express();
   app.disable("x-powered-by"); // don't advertise what the server runs on
 
-  // GET /api/status?house=
-  // Is the data fresh? Drives the "last updated" line and the stale warning.
+  // GET /api/status?house=  - is the data fresh?
   app.get("/api/status", (req, res) => {
     const query = parse(StatusQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
@@ -262,7 +245,6 @@ export function createApp(options: ApiOptions): Express {
             ageSeconds: time - latest.taken_at,
           }
         : null,
-      // Stale = nothing at all, or the newest snapshot is over 2 hours old.
       stale: !latest || time - latest.taken_at > STALE_AFTER_SECONDS,
       last24h: { ok: last24h.ok ?? 0, empty: last24h.empty ?? 0, failed: last24h.failed ?? 0 },
       lastFailure: lastFailure.get(houseId) ?? null,
@@ -270,8 +252,7 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/items?q=peace&house=&limit=50&offset=0
-  // Search by name (or exact item ID), with each item's current price.
+  // GET /api/items?q=&house=&limit=&offset=  - search by name or exact ID
   app.get("/api/items", (req, res) => {
     const query = parse(SearchQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
@@ -300,8 +281,7 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/items/:id?house=
-  // One item: its current price and the cheapest price levels (order book).
+  // GET /api/items/:id?house=  - current price, trend and order book
   app.get("/api/items/:id", (req, res) => {
     const { id: itemId } = parse(ItemParams, req.params);
     const query = parse(ItemQuery, req.query);
@@ -311,8 +291,7 @@ export function createApp(options: ApiOptions): Express {
     const row = oneItem.get({ itemId, snapshotId: latest?.id ?? -1 });
     if (!row) throw new HttpError(404, `Item ${itemId} has never been seen`);
 
-    // The same verdict the deals list uses (falling / stable / rising), or
-    // null while the item has too little history or isn't on sale right now.
+    // null with too little history, or when not on sale.
     let trend = null;
     if (latest && row.min_price !== null) {
       const week = itemMins.all({ itemId, houseId, since: latest.taken_at - 7 * DAY_SECONDS });
@@ -339,8 +318,7 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/items/:id/history?house=&days=7
-  // One point per snapshot, oldest first - what the price chart draws.
+  // GET /api/items/:id/history?house=&days=  - one point per snapshot, oldest first
   app.get("/api/items/:id/history", (req, res) => {
     const { id: itemId } = parse(ItemParams, req.params);
     const query = parse(HistoryQuery, req.query);
@@ -356,14 +334,11 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/deals?house=&show=deals|falling&minProfit=&maxQty=&limit=100
-  // Items priced well below their recent typical price, in a market that
-  // isn't simply falling - ranked by total profit after the AH cut.
-  // The rule itself is explained in deals.ts.
+  // GET /api/deals?house=&show=&minProfit=&maxQty=&limit=  - see deals.ts
   app.get("/api/deals", (req, res) => {
     const query = parse(DealsQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
-    // Read on every request, so an edit to the settings table applies at once.
+    // Read per request, so a settings change applies at once.
     const settings = loadSettings(db);
     const minProfit = query.minProfit ?? settings.dealMinProfit;
 
@@ -382,8 +357,7 @@ export function createApp(options: ApiOptions): Express {
       show: query.show,
       minProfit,
       takenAt: result.takenAt,
-      // Lets the UI say "collecting history: 12 of 48 snapshots" instead of
-      // showing an empty list with no explanation.
+      // Lets the UI explain an empty list while history is still building.
       history: {
         snapshots: result.snapshotsInWindow,
         needed: settings.dealMinSnapshots,
@@ -394,15 +368,13 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/favor?house=&target=90
-  // The cheapest way to buy Merchant's Favor: every Waylaid Crate priced per
-  // favor, and a shopping plan that reaches `target`. Explained in favor.ts.
+  // GET /api/favor?house=&target=  - see favor.ts
   app.get("/api/favor", (req, res) => {
     const query = parse(FavorQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
     const data = loadFavorData(db, houseId);
 
-    // Cheapest per favor first; crates that can't be filled right now go last.
+    // Cheapest per favor first; unfillable crates last.
     const crates = priceCrates(data.crates, data.books).sort((a, b) => {
       if (!a.best || !b.best) return (a.best ? 0 : 1) - (b.best ? 0 : 1) || a.itemId - b.itemId;
       return a.best.copperPerFavor - b.best.copperPerFavor || a.itemId - b.itemId;
@@ -416,24 +388,16 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // --- Watchlist ---------------------------------------------------------------
-  // The first routes that CHANGE something, so two new ideas appear here:
-  //
-  //   * express.json() reads a JSON request body into req.body. It is only
-  //     switched on for these routes, and only accepts small bodies.
-  //   * Because the site's login is sent by the browser automatically, another
-  //     website could try to make your browser send a request here (a "CSRF"
-  //     attack). Insisting on Content-Type: application/json blocks that:
-  //     browsers refuse to send that header, or a DELETE, across sites without
-  //     this server's permission - which it never gives.
+  // --- Watchlist ---
+  // Requiring a JSON content type blocks cross-site requests (CSRF): browsers
+  // won't send it, or a DELETE, across sites without CORS permission.
   const jsonBody = express.json({ limit: "10kb" });
   const requireJson = (req: Request, _res: Response, next: NextFunction) => {
     if (!req.is("application/json")) return next(new HttpError(415, "Send the request body as JSON"));
     next();
   };
 
-  // GET /api/watchlist?house=
-  // Your rules with each item's current price, and the alerts raised so far.
+  // GET /api/watchlist?house=  - rules, current prices and past alerts
   app.get("/api/watchlist", (req, res) => {
     const query = parse(WatchlistQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
@@ -446,8 +410,7 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // POST /api/watchlist   { itemId, direction: "below" | "above", threshold }
-  // Adds a rule, or changes the threshold of the one already there.
+  // POST /api/watchlist { itemId, direction, threshold }  - add or update a rule
   app.post("/api/watchlist", requireJson, jsonBody, (req, res) => {
     const body = parse(WatchBody, req.body);
     const watch = saveWatch({
@@ -462,26 +425,22 @@ export function createApp(options: ApiOptions): Express {
     res.status(201).json(watch);
   });
 
-  // DELETE /api/watchlist/:id
-  // Removes a rule. Its past alerts stay in the history.
+  // DELETE /api/watchlist/:id  - past alerts are kept
   app.delete("/api/watchlist/:id", (req, res) => {
     const { id } = parse(ItemParams, req.params);
     if (!deleteWatch(db, id)) throw new HttpError(404, `No watchlist rule ${id}`);
     res.status(204).end(); // 204 = done, nothing to send back
   });
 
-  // GET /api/settings
-  // The numbers the deals rule is using right now.
+  // GET /api/settings  - the deals rule's current numbers
   app.get("/api/settings", (_req, res) => {
     res.json(loadSettings(db));
   });
 
-  // Any other /api path: a JSON 404 rather than Express's HTML page.
+  // Unknown /api paths get a JSON 404, not Express's HTML page.
   app.use("/api", (_req, _res, next) => next(new HttpError(404, "No such endpoint")));
 
-  // The built web app, if there is one. express.static serves the real files
-  // (JS, CSS, favicon). Every other non-API address gets index.html, because
-  // pages like /items exist only inside the React app - there is no items.html.
+  // Static files, then index.html for every other path (the React app routes them).
   const { webDir } = options;
   if (webDir) {
     app.use(express.static(webDir));
@@ -491,16 +450,13 @@ export function createApp(options: ApiOptions): Express {
     });
   }
 
-  // The error handler. Express spots it by its four arguments. Anything a
-  // route throws lands here: ours become their status, the rest a plain 500
-  // (logged on the server, but with no details leaked to the caller).
+  // Error handler: HttpErrors keep their status; anything else is a logged 500.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) {
       res.status(err.status).json({ error: err.message });
       return;
     }
-    // express.json() throws its own errors for a body that isn't valid JSON
-    // or is too big. They carry a 4xx status: the caller's mistake, not ours.
+    // express.json() errors (bad or oversized body) carry their own 4xx status.
     const status = (err as { status?: unknown } | null)?.status;
     if (typeof status === "number" && status >= 400 && status < 500) {
       res.status(status).json({ error: "The request body could not be read" });

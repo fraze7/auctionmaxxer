@@ -1,17 +1,9 @@
 import type { DataSource } from "./dataSource.js";
 import type { Db } from "./db.js";
 
-// The item-name backfill queue.
-//
-// The collector only knows item IDs. Each new ID gets a 'pending' row in
-// `items`; this job works through those rows a batch at a time, asking the
-// source for each name. Doing it in small batches spread over many runs
-// keeps us far below Blizzard's rate limits (100 requests a second).
-//
-// An item ends up in one of two states:
-//   'ok'      - name (and quality) stored
-//   'missing' - Blizzard has no data for it. Tried again after a week, since
-//               Blizzard fills its item data in over time.
+// Looks up names for 'pending' items, a batch per run to stay well inside
+// Blizzard's rate limits. Items Blizzard doesn't know become 'missing' and
+// are retried after a week.
 
 export const DEFAULT_BATCH_SIZE = 100;
 const RETRY_MISSING_AFTER_SECONDS = 7 * 24 * 60 * 60;
@@ -19,9 +11,8 @@ const RETRY_MISSING_AFTER_SECONDS = 7 * 24 * 60 * 60;
 export interface BackfillOptions {
   db: Db;
   source: DataSource;
-  // Most items to look up in this run.
   limit?: number;
-  // Current time in Unix seconds. Only tests pass this.
+  // Unix seconds. Only tests pass this.
   now?: () => number;
 }
 
@@ -29,8 +20,7 @@ export interface BackfillResult {
   found: number; // now 'ok'
   missing: number; // now 'missing'
   remaining: number; // still waiting for a later run
-  // Set when a lookup failed (network down, Blizzard erroring). The batch
-  // stops there; the item stays queued and is tried again next run.
+  // Set when a lookup failed; the batch stops and the item stays queued.
   error?: string;
 }
 
@@ -40,7 +30,7 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
   const now = (options.now ?? (() => Math.floor(Date.now() / 1000)))();
   const retryMissingBefore = now - RETRY_MISSING_AFTER_SECONDS;
 
-  // Never-tried items first (oldest sighting first), then stale 'missing' ones.
+  // Never-tried items first, then stale 'missing' ones.
   const DUE = `
     status = 'pending' OR (status = 'missing' AND fetched_at <= @retryMissingBefore)
   `;
@@ -64,8 +54,7 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
   let missing = 0;
   let error: string | undefined;
 
-  // One at a time, on purpose: waiting for each answer before asking the next
-  // is all the throttling we need.
+  // One at a time: that is all the throttling needed.
   for (const { itemId } of batch) {
     try {
       const item = await source.getItem(itemId);
@@ -77,8 +66,7 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
         missing++;
       }
     } catch (err) {
-      // If one lookup fails after the source's own retries, the rest probably
-      // would too. Stop and leave them for the next run.
+      // The rest would probably fail too; leave them for the next run.
       error = err instanceof Error ? err.message : String(err);
       break;
     }

@@ -1,4 +1,3 @@
-// Tests for the item-name backfill, against a throwaway in-memory database.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { backfillItems } from "./backfill.js";
@@ -9,7 +8,7 @@ import type { ItemInfo } from "./types.js";
 const NOW = 1_800_000_000;
 const DAY = 24 * 60 * 60;
 
-// A source that knows the given items and records which IDs were asked for.
+// Knows the given items and records which IDs were asked for.
 function fakeSource(known: ItemInfo[], failOn?: number) {
   const asked: number[] = [];
   const source: DataSource = {
@@ -94,7 +93,7 @@ describe("backfillItems", () => {
     const nothingYet = fakeSource([]);
     await backfillItems({ db, source: nothingYet.source, now: () => NOW });
 
-    // Six days later: too soon, nothing is asked.
+    // Six days later: too soon to retry.
     await backfillItems({ db, source: nothingYet.source, now: () => NOW + 6 * DAY });
     assert.deepEqual(nothingYet.asked, [2447]);
 

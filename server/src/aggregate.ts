@@ -1,23 +1,17 @@
 import type { CommodityListing } from "./types.js";
 
-// Turns one snapshot's raw commodity listings (about 97,000 of them) into one
-// small summary per item. The summaries are what we store; the raw listings
-// are thrown away afterwards.
-//
-// These are pure functions: listings in, summaries out. No database, no
-// network, no clock - which is what makes them easy to unit test.
+// Turns a snapshot's raw commodity listings into one summary per item.
+// Pure functions: no database, network or clock.
 
-// How many distinct prices to keep per item for the order book. 20 levels is
-// plenty to answer "what does it cost to buy 300 of these?" for most items.
+// Distinct prices kept per item for the order book.
 export const DEFAULT_MAX_LEVELS = 20;
 
-// One step of the order book: every unit on sale at exactly this price.
 export interface PriceLevel {
   unitPrice: number; // copper
   quantity: number; // summed across all listings at this price
 }
 
-// One item in one snapshot. Field names mirror the commodity_prices columns.
+// Field names mirror the commodity_prices columns.
 export interface CommoditySummary {
   itemId: number;
   minPrice: number; // cheapest unit price, in copper
@@ -28,14 +22,12 @@ export interface CommoditySummary {
   levels: PriceLevel[]; // cheapest first, at most maxLevels entries
 }
 
-// Summarises every item in a snapshot. Returns one entry per item ID, sorted
-// by item ID so the output is the same on every run. An empty house gives [].
+// One entry per item ID, sorted by ID.
 export function summarizeCommodities(
   listings: readonly CommodityListing[],
   maxLevels: number = DEFAULT_MAX_LEVELS,
 ): CommoditySummary[] {
-  // A listing at 0 copper can't be bought for nothing in game, so it's bad
-  // data. Dropping it here keeps min_price > 0, which the database insists on.
+  // A 0-copper listing is bad data, and the database requires min_price > 0.
   const priced = listings.filter((listing) => listing.unit_price > 0);
 
   const byItem = new Map<number, CommodityListing[]>();
@@ -53,14 +45,12 @@ export function summarizeCommodities(
     .map(([itemId, group]) => summarizeItem(itemId, group, maxLevels));
 }
 
-// Summarises the listings of a single item. `group` must not be empty.
 function summarizeItem(
   itemId: number,
   group: readonly CommodityListing[],
   maxLevels: number,
 ): CommoditySummary {
-  // Merge listings with the same price into one level, then sort cheapest
-  // first. Everything else below reads off this sorted order book.
+  // Merge listings at the same price into one level, cheapest first.
   const qtyByPrice = new Map<number, number>();
   for (const listing of group) {
     qtyByPrice.set(listing.unit_price, (qtyByPrice.get(listing.unit_price) ?? 0) + listing.quantity);
@@ -85,17 +75,8 @@ function summarizeItem(
   };
 }
 
-// Quantity-weighted median: imagine every single unit laid out in a row,
-// cheapest first, and take the price of the unit in the middle.
-//
-// Weighting by quantity matters because listings differ hugely in size: one
-// listing of 1 Peacebloom should not count the same as one listing of 200.
-//
-// With an even number of units there are two middle units; we take the
-// cheaper one (the "lower median") rather than averaging them, so the result
-// is always a real price someone listed and always a whole number of copper.
-//
-// `levels` must be sorted cheapest first and `totalQuantity` must be their sum.
+// Quantity-weighted lower median: the price of the middle unit when every
+// unit is laid out cheapest first. Always a real listed price in whole copper.
 function weightedMedian(levels: readonly PriceLevel[], totalQuantity: number): number {
   const middleUnit = Math.ceil(totalQuantity / 2); // 1-based position in the row
   let unitsSeen = 0;

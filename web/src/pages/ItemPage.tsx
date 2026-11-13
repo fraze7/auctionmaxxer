@@ -10,9 +10,6 @@ import { formatCopperShort, formatCountShort, formatDateTime, formatNumber, form
 import { useUrlParam } from '../useUrlParam.ts'
 import { RemoveButton, RuleText, useWatchlist, WatchForm, WatchStatus } from '../watchlist.tsx'
 
-// One item: where its price is now, how it got there, and what it would cost
-// to buy a given amount.
-
 const RANGES = [
   { days: 1, label: '24 hours' },
   { days: 7, label: '7 days' },
@@ -145,7 +142,7 @@ export function ItemPage() {
   )
 }
 
-// --- Headline numbers ----------------------------------------------------------
+// --- Headline numbers ---
 
 function Stats({ item }: { item: ItemDetail }) {
   if (!item.price) {
@@ -190,9 +187,8 @@ function Stat({ label, hint, children }: { label: string; hint?: string; childre
   )
 }
 
-// --- Price alert ---------------------------------------------------------------
+// --- Price alert ---
 
-// This item's watchlist rules, and the form to add or change one.
 function PriceAlert({ item }: { item: ItemDetail }) {
   const watchlist = useWatchlist()
   const mine = watchlist.data?.watches.filter((w) => w.itemId === item.id) ?? []
@@ -207,8 +203,7 @@ function PriceAlert({ item }: { item: ItemDetail }) {
         </Link>
       }
     >
-      {/* key: start the form afresh for another item, and once the saved rules
-          have loaded (so it can pre-fill from them). */}
+      {/* key: reset the form per item, and once saved rules load. */}
       <WatchForm
         key={`${item.id}-${watchlist.isSuccess}`}
         itemId={item.id}
@@ -231,7 +226,7 @@ function PriceAlert({ item }: { item: ItemDetail }) {
   )
 }
 
-// --- Layout helpers ------------------------------------------------------------
+// --- Layout helpers ---
 
 interface CardProps {
   title: string
@@ -255,8 +250,7 @@ function Card({ title, subtitle, action, children }: CardProps) {
   )
 }
 
-// Loading / error / empty handling shared by everything drawn from history.
-// `children` is a function: it's only called once there are points to draw.
+// Loading, error and empty handling for everything drawn from history.
 interface HistoryProps {
   state: { isPending: boolean; isError: boolean; error: unknown; data?: { points: HistoryPoint[] } | undefined }
   children: (points: HistoryPoint[]) => ReactNode
@@ -272,9 +266,9 @@ function History({ state, children }: HistoryProps) {
   return children(points)
 }
 
-// --- Tables --------------------------------------------------------------------
+// --- Tables ---
 
-// The order book, with running totals: "to buy the first 300 units you pay X".
+// The order book with running totals.
 function OrderBook({ levels }: { levels: PriceLevel[] }) {
   if (levels.length === 0) return <p className="py-6 text-center text-sm text-zinc-500">Nothing listed.</p>
 

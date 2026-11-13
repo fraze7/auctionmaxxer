@@ -1,12 +1,8 @@
 import { z } from "zod";
 import type { Db } from "./db.js";
 
-// Reads the `settings` table into a typed object.
-//
-// The table stores everything as text, so this is where "0.05" becomes the
-// number 0.05 - and where a nonsense value (a cut of 5 instead of 0.05, say)
-// is caught with a clear error instead of quietly producing wrong deals.
-// A key missing from the table falls back to the default written here.
+// Reads the text-valued `settings` table into a typed, range-checked object.
+// Missing keys fall back to the defaults here.
 
 const SettingsSchema = z.object({
   ah_cut: z.coerce.number().min(0).max(0.5).default(0.05),

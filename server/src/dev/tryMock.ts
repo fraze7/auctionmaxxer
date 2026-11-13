@@ -1,5 +1,4 @@
-// Quick manual check that MockSource works. Run with: npm run try:mock
-// Optional: npm run try:mock -- fixtures/utf8   (uses the full snapshot)
+// Manual check of MockSource: npm run try:mock [-- fixtures/utf8]
 import { MockSource } from "../mockSource.js";
 
 const source = new MockSource(process.argv[2]);

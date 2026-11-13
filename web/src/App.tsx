@@ -7,10 +7,8 @@ import { ItemsPage } from './pages/ItemsPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
 import { useWatchlist } from './watchlist.tsx'
 
-// The frame around every page: header with navigation, the stale-data
-// warning, the current page, and the footer.
 export default function App() {
-  // How many alerts are triggered right now, shown as a number on the tab.
+  // Shown as a count on the Watchlist tab.
   const triggered = useWatchlist().data?.watches.filter((w) => w.triggeredAt !== null).length ?? 0
 
   return (
@@ -51,7 +49,6 @@ export default function App() {
   )
 }
 
-// A navigation link that highlights itself when its page is open.
 function Tab({ to, badge = 0, children }: { to: string; badge?: number; children: string }) {
   return (
     <NavLink

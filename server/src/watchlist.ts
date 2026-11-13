@@ -1,18 +1,10 @@
 import type { Db } from "./db.js";
 
-// The watchlist: price rules, and the check that turns them into alerts.
-//
-// A rule watches one item's CHEAPEST price (the min price):
-//   below 4000  -> fires when the min price is 40s or less  (time to buy)
-//   above 9000  -> fires when the min price is 90s or more  (time to sell)
-//
-// The important idea is "edge triggering". A rule doesn't alert every hour
-// the price sits past the threshold - that would be 24 messages a day about
-// the same thing. It alerts once, at the moment the price CROSSES it, then
-// stays quiet until the price has gone back and crossed again. The
-// `triggered_at` column is the memory that makes this possible.
-//
-// This file only writes rows. Telling Discord about them is notify.ts.
+// Watchlist rules and the check that turns them into alerts.
+// A rule watches an item's min price: "below" fires at or under the threshold,
+// "above" at or over it. Rules are edge-triggered: one alert when the price
+// crosses, then nothing until it has gone back and crossed again
+// (`triggered_at` remembers which side it is on). Sending is in notify.ts.
 
 export type Direction = "below" | "above";
 
@@ -42,7 +34,7 @@ export interface Alert {
 
 const unixNow = () => Math.floor(Date.now() / 1000);
 
-// The newest good snapshot for a house, or undefined if there isn't one.
+// The newest good snapshot, if any.
 function latestSnapshot(db: Db, houseId: number): { id: number; takenAt: number } | undefined {
   return db
     .prepare<[number], { id: number; takenAt: number }>(`
@@ -55,12 +47,12 @@ function latestSnapshot(db: Db, houseId: number): { id: number; takenAt: number 
     .get(houseId);
 }
 
-// True when a price is on the "tell me" side of a rule.
+// True when the price is on the alerting side of the rule.
 export function isPast(direction: Direction, threshold: number, price: number): boolean {
   return direction === "below" ? price <= threshold : price >= threshold;
 }
 
-// Every rule for a house, each with the item's name and current min price.
+// Each rule with its item's name and current min price.
 export function listWatches(db: Db, houseId: number): Watch[] {
   const snapshot = latestSnapshot(db, houseId);
   return db
@@ -85,13 +77,8 @@ export interface SaveWatchOptions {
   now?: () => number;
 }
 
-// Adds a rule, or - if the item already has one in that direction - changes
-// its threshold. Returns null when the item has never been seen.
-//
-// "INSERT ... ON CONFLICT DO UPDATE" is SQLite's upsert: try to insert, and if
-// that would break the UNIQUE (house, item, direction) rule, update the
-// existing row instead. A changed rule forgets its triggered state, so it is
-// judged afresh against the new threshold.
+// Adds a rule, or updates the threshold of the existing one (upsert). An updated
+// rule is re-judged from scratch. Returns null for an item never seen.
 export function saveWatch(options: SaveWatchOptions): Watch | null {
   const { db, houseId, itemId, direction, threshold } = options;
   const now = (options.now ?? unixNow)();
@@ -106,14 +93,13 @@ export function saveWatch(options: SaveWatchOptions): Watch | null {
     DO UPDATE SET threshold = excluded.threshold, triggered_at = NULL
   `).run({ houseId, itemId, direction, threshold, now });
 
-  // Judge it against the latest snapshot straight away, so the page shows
-  // whether it's already past the threshold without waiting for the next hour.
+  // Judge it now, so the page doesn't wait for the next snapshot.
   checkWatches({ db, houseId, now: () => now });
 
   return listWatches(db, houseId).find((w) => w.itemId === itemId && w.direction === direction) ?? null;
 }
 
-// Removes a rule. Returns false if there was no rule with that ID.
+// Returns false if there was no such rule.
 export function deleteWatch(db: Db, id: number): boolean {
   return db.prepare("DELETE FROM watches WHERE id = ?").run(id).changes > 0;
 }
@@ -124,16 +110,8 @@ export interface CheckOptions {
   now?: () => number;
 }
 
-// Compares every rule with the latest snapshot. Run after each new snapshot.
-// Returns how many new alerts were raised.
-//
-// For each rule there are three cases:
-//   * the item isn't listed at all -> no price to judge, leave the rule alone
-//   * the price is past the threshold -> if it wasn't before, raise an alert
-//   * the price is back on the quiet side -> reset, ready to fire again
-//
-// Running it twice on the same snapshot is harmless: the second run finds
-// every rule already in the right state and raises nothing.
+// Compares every rule with the latest snapshot; returns how many alerts were
+// raised. An unlisted item leaves its rule untouched. Safe to run twice.
 export function checkWatches(options: CheckOptions): number {
   const { db, houseId } = options;
   const now = (options.now ?? unixNow)();
@@ -146,8 +124,7 @@ export function checkWatches(options: CheckOptions): number {
     VALUES (@houseId, @itemId, @direction, @threshold, @price, @takenAt, @now)
   `);
 
-  // One transaction: a rule's state and its alert row are saved together or
-  // not at all, so a crash can't leave a rule "triggered" with no alert.
+  // A rule's state and its alert row are saved together or not at all.
   const run = db.transaction(() => {
     let raised = 0;
     for (const watch of listWatches(db, houseId)) {
@@ -175,7 +152,7 @@ export function checkWatches(options: CheckOptions): number {
   return run.immediate();
 }
 
-// The most recent alerts for a house, newest first.
+// Newest first.
 export function listAlerts(db: Db, houseId: number, limit = 50): Alert[] {
   return db
     .prepare<[number, number], Alert>(`

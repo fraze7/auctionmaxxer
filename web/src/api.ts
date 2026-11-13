@@ -1,9 +1,5 @@
-// Everything the web app knows about the server's API: the shape of each
-// response, and one small function per endpoint. Components never call
-// fetch() themselves - they go through here.
-//
-// Prices are whole copper and times are Unix seconds, exactly as the server
-// sends them. Turning them into "12g 34s" or "5 min ago" is the UI's job.
+// Response shapes and one function per endpoint. Components never call fetch()
+// themselves. Prices are whole copper and times are Unix seconds.
 
 export interface Price {
   minPrice: number
@@ -77,8 +73,7 @@ export interface Settings {
   dealMinProfit: number
 }
 
-// Thrown when the server can't be reached at all (as opposed to answering
-// with an error). The UI uses it to suggest checking the SSH tunnel.
+// The server couldn't be reached at all, as opposed to answering with an error.
 export class ApiUnreachableError extends Error {}
 
 type Params = Record<string, string | number | undefined>
@@ -114,7 +109,7 @@ export const api = {
     get<DealsResponse>('/api/deals', params),
 }
 
-// --- One item ----------------------------------------------------------------
+// --- One item ---
 
 export interface PriceLevel {
   unitPrice: number
@@ -165,7 +160,7 @@ export const itemApi = {
   history: (id: number, days: number) => get<ItemHistory>(`/api/items/${id}/history`, { days }),
 }
 
-// --- Merchant's Favor ----------------------------------------------------------
+// --- Merchant's Favor ---
 
 export interface FavorBundle {
   itemId: number | null // null = an item we've never seen, so it has no price
@@ -224,7 +219,7 @@ export const favorApi = {
   get: (target: number) => get<FavorResponse>('/api/favor', { target }),
 }
 
-// --- Watchlist -----------------------------------------------------------------
+// --- Watchlist ---
 
 export type Direction = 'below' | 'above'
 
@@ -260,8 +255,7 @@ export interface Watchlist {
   alerts: WatchAlert[]
 }
 
-// For requests that change something. GET only reads; POST adds and DELETE
-// removes. The body goes as JSON, which the server insists on.
+// For requests that change something. The server only accepts JSON bodies.
 async function send<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   let response: Response
   try {

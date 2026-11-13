@@ -1,14 +1,10 @@
-# Runs one database backup and exits. Started by auctionmaxxer-backup.timer,
-# not directly at boot. To run a backup right now:
-#   systemctl start auctionmaxxer-backup
-# To see what the last ones did:
-#   journalctl -u auctionmaxxer-backup -n 20
+# One database backup, started by auctionmaxxer-backup.timer.
+#   systemctl start auctionmaxxer-backup      run one now
 
 [Unit]
 Description=auctionmaxxer database backup
 
 [Service]
-# oneshot = a job that runs to completion, not a long-running program.
 Type=oneshot
 User=auction
 WorkingDirectory=/opt/auctionmaxxer/server

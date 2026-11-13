@@ -1,20 +1,11 @@
-// The long-running collector. Run with: npm start   (stop with Ctrl+C)
-//
-// Blizzard publishes one snapshot an hour, but not at a fixed minute: it was
-// 12 past on 9 Nov 2026 and 25 past on 12 Nov. So instead of guessing the
-// minute, we ask every 10 minutes. Asking is cheap - when there's nothing new
-// Blizzard answers "304 Not Modified" with no body - and a new snapshot is
-// picked up at most 10 minutes after it appears.
-//
-// History is only collected while this is running. If the PC sleeps or this
-// window is closed, those hours are gone for good.
+// The long-running collector: npm start
+// Blizzard publishes hourly but not at a fixed minute, so we ask every 10
+// minutes. Asking is cheap: nothing new means a 304 with no body.
 import { schedule } from "node-cron";
 import { createSource, loadConfig } from "./config.js";
 import { openDb } from "./db.js";
 import { log, runJob } from "./job.js";
 
-// Cron fields: minute hour day-of-month month day-of-week.
-// "*/10 * * * *" = at minutes 0, 10, 20, 30, 40, 50 of every hour.
 const EVERY_TEN_MINUTES = "*/10 * * * *";
 
 const config = loadConfig();
@@ -33,9 +24,7 @@ async function tick(logSkipped: boolean): Promise<void> {
       siteUrl: config.SITE_URL,
     });
   } catch (err) {
-    // runJob records ordinary failures itself. Anything that still gets here
-    // (say, the disk is full) is logged, and the schedule carries on: one bad
-    // run must not kill the collector for the rest of the night.
+    // Anything runJob didn't handle itself: log it and keep the schedule running.
     log("Run crashed:", err instanceof Error ? (err.stack ?? err.message) : String(err));
   }
 }
@@ -44,16 +33,13 @@ log(`Collector started: house ${config.HOUSE_ID}, source "${config.DATA_SOURCE}"
 log("Checking for a new snapshot every 10 minutes. Press Ctrl+C to stop.");
 log(config.DISCORD_WEBHOOK_URL ? "Watchlist alerts go to Discord." : "No Discord webhook set: alerts show on the site only.");
 
-// Once right away, so a restart doesn't wait up to 10 minutes.
+// Once right away, so a restart doesn't wait.
 await tick(true);
 
-// noOverlap: if a run is somehow still going when the next one is due, skip
-// that one instead of running two at once.
+// noOverlap: never run two at once.
 const task = schedule(EVERY_TEN_MINUTES, () => tick(false), { noOverlap: true });
 
-// Stop cleanly on Ctrl+C (SIGINT) and when the system asks us to stop
-// (SIGTERM - what systemd sends on the server): end the schedule, close the
-// database, then exit.
+// Stop cleanly on Ctrl+C (SIGINT) and systemd's SIGTERM.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log("Stopping.");

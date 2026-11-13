@@ -6,17 +6,14 @@ import { toCoins } from './format.ts'
 
 // Watchlist pieces shared by the Watchlist page, the item page and the header.
 
-// Every part of the app that shows the watchlist uses this one query. Same
-// key = one request, one cached copy, and one place to refresh after a change.
+// One shared query, so one cached copy to refresh after a change.
 const WATCHLIST_KEY = ['watchlist']
 
 export function useWatchlist() {
   return useQuery({ queryKey: WATCHLIST_KEY, queryFn: watchApi.list, refetchInterval: 60_000 })
 }
 
-// useMutation is TanStack Query's tool for requests that change something.
-// After a change succeeds, "invalidate" marks the cached watchlist as out of
-// date, so everything showing it re-fetches and updates by itself.
+// Invalidating after a change makes everything showing the watchlist re-fetch.
 export function useSaveWatch() {
   const client = useQueryClient()
   return useMutation({
@@ -33,7 +30,6 @@ export function useRemoveWatch() {
   })
 }
 
-// "40s or less" / "90s or more"
 export function RuleText({ direction, threshold }: { direction: Direction; threshold: number }) {
   return (
     <span className="whitespace-nowrap">
@@ -51,14 +47,12 @@ interface WatchFormProps {
   existing: Watch[] // this item's rules, to pre-fill the form
 }
 
-// The "alert me when..." form on an item's page. The price is typed as gold,
-// silver and copper - the way the game shows it - and turned into copper here.
+// The alert form on an item's page. Gold, silver and copper become one copper amount.
 export function WatchForm({ itemId, currentMin, existing }: WatchFormProps) {
   const save = useSaveWatch()
   const [direction, setDirection] = useState<Direction>('below')
 
-  // Start from the rule already saved for this direction, or - if there is
-  // none - from the current price, which is easier to adjust than a blank.
+  // Start from the saved rule for this direction, or else the current price.
   const startingPrice = (which: Direction) =>
     toCoins(existing.find((w) => w.direction === which)?.threshold ?? currentMin ?? 0)
   const [coins, setCoins] = useState(() => startingPrice('below'))
@@ -76,8 +70,7 @@ export function WatchForm({ itemId, currentMin, existing }: WatchFormProps) {
     if (threshold > 0) save.mutate({ itemId, direction, threshold })
   }
 
-  // One of the three number boxes. Anything that isn't a whole number >= 0
-  // becomes 0, so the total is always a valid copper amount.
+  // Invalid input becomes 0, so the total is always a valid amount.
   const coinBox = (part: 'gold' | 'silver' | 'copper', max: number, tint: string) => (
     <label className="flex items-center gap-1">
       <input
@@ -126,7 +119,6 @@ export function WatchForm({ itemId, currentMin, existing }: WatchFormProps) {
   )
 }
 
-// A rule's state in one word, for tables.
 export function WatchStatus({ watch }: { watch: Watch }) {
   if (watch.triggeredAt !== null) {
     return <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-300">Triggered</span>

@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# Sends the current commit to the server and restarts the collector.
-# Runs ON YOUR PC (Git Bash), from anywhere inside the repo:
-#   deploy/deploy.sh root@YOUR_SERVER_IP
-#
-# It ships exactly what is committed (HEAD), not your working folder - so
-# commit first. The GitHub repo is private, so instead of cloning it on the
-# server we pipe a tarball of the commit straight over SSH. The server never
-# needs GitHub access.
-#
-# Never touched by a deploy: server/.env and server/data/ (the database).
+# Deploys the committed HEAD (not the working folder) to the server and restarts
+# the services. Run on your PC (Git Bash):
+#   deploy/deploy.sh auctionmaxxer
+# Never touches server/.env or server/data/.
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
@@ -25,7 +19,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 echo "==> Uploading commit ${COMMIT}"
-# Old source is removed first so a file deleted in git also disappears there.
+# Remove old source first, so files deleted in git disappear there too.
 git archive --format=tar HEAD server web deploy |
   ssh "${TARGET}" "
     set -e
@@ -38,16 +32,14 @@ echo "==> Installing dependencies and restarting"
 ssh "${TARGET}" "
   set -e
   cd ${APP_DIR}/server
-  # npm ci = install exactly what package-lock.json says. Run as the app user.
+  # npm ci installs exactly what package-lock.json says.
   runuser -u auction -- npm ci --no-audit --no-fund
-  # Build the web app into web/dist, which the API server then serves.
+  # The API serves web/dist.
   cd ${APP_DIR}/web
   runuser -u auction -- npm ci --no-audit --no-fund
   runuser -u auction -- npm run build
   cd ${APP_DIR}/server
-  # Install the systemd units: the collector, and the nightly backup + its timer.
   install -m 644 ${APP_DIR}/deploy/*.service ${APP_DIR}/deploy/*.timer /etc/systemd/system/
-  # The command that connects alerts to Discord (see set-webhook.sh).
   install -m 755 ${APP_DIR}/deploy/set-webhook.sh /usr/local/sbin/auctionmaxxer-set-webhook
   systemctl daemon-reload
   systemctl enable auctionmaxxer auctionmaxxer-api >/dev/null 2>&1

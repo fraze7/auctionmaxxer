@@ -1,5 +1,4 @@
-// Tests for the watchlist: the rule check, the Discord sender (with a fake
-// fetch, so nothing is really sent), and the API routes.
+// Discord is a fake fetch here, so nothing is really sent.
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { describe, it } from "node:test";
@@ -27,8 +26,7 @@ const listing = (itemId: number, unitPrice: number, quantity = 10): CommodityLis
   time_left: "LONG",
 });
 
-// Stores one snapshot through the real collector, then runs the rule check
-// the way the hourly job does.
+// Stores a snapshot, then runs the rule check as the hourly job does.
 async function snapshot(db: Db, takenAt: number, commodities: CommodityListing[]): Promise<number> {
   const source: DataSource = {
     listHouses: async () => [],
@@ -40,7 +38,7 @@ async function snapshot(db: Db, takenAt: number, commodities: CommodityListing[]
   return checkWatches({ db, houseId: HOUSE, now: () => takenAt + 300 });
 }
 
-// A database where Dense Stone costs 50s and Linen Cloth 10s.
+// Dense Stone at 50s, Linen Cloth at 10s.
 async function seededDb(): Promise<Db> {
   const db = openDb(":memory:");
   await snapshot(db, T0, [listing(STONE, 5000), listing(LINEN, 1000)]);
@@ -203,7 +201,7 @@ describe("Discord messages", () => {
 });
 
 describe("sendPendingAlerts", () => {
-  // A stand-in for fetch that records what it was asked to send.
+  // Records what it was asked to send.
   function fakeDiscord(status = 204) {
     const calls: Array<{ url: string; body: any }> = [];
     const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -226,7 +224,6 @@ describe("sendPendingAlerts", () => {
     assert.deepEqual(discord.calls[0]?.body.allowed_mentions, { parse: [] });
     assert.equal(listAlerts(db, HOUSE)[0]?.notifiedAt, T0 + 900);
 
-    // Nothing new: nothing sent.
     assert.deepEqual(await sendPendingAlerts(options), { sent: 0 });
     assert.equal(discord.calls.length, 1);
   });

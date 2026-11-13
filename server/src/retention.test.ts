@@ -1,4 +1,3 @@
-// Tests for pruning old price levels.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { openDb, type Db } from "./db.js";
@@ -7,7 +6,7 @@ import { pruneOldLevels } from "./retention.js";
 const DAY = 24 * 60 * 60;
 const NOW = 1_800_000_000;
 
-// One snapshot with one item: a price row and two price levels.
+// One item: a price row and two price levels.
 function addSnapshot(db: Db, takenAt: number): number {
   const { lastInsertRowid } = db
     .prepare(

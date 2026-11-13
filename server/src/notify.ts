@@ -1,32 +1,21 @@
 import type { Db } from "./db.js";
 
-// Sends new watchlist alerts to a Discord channel through a webhook.
-//
-// A webhook is a secret web address Discord gives you for one channel:
-// anything POSTed to it appears there as a message. No bot, no login - which
-// also means anyone who learns the address can post to the channel. So it is
-// treated like a password: it lives only in server/.env, and this file never
-// prints it, not even in an error message.
-//
-// Sending is kept apart from deciding (watchlist.ts). Alerts are rows in the
-// database first; this picks up the ones with no `notified_at` and stamps
-// them once Discord has accepted them. If Discord is down, the rows simply
-// wait and the next run (ten minutes later) tries again.
+// Sends unsent watchlist alerts to Discord through a webhook.
+// The webhook address is a secret: it lives only in .env and is never logged.
+// Alerts stay unsent in the database until Discord accepts them.
 
-// Only ever send to Discord itself. A typo'd or tampered setting can't make
-// the server post your alerts somewhere else.
+// Only ever post to Discord itself.
 export const WEBHOOK_PATTERN = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[\w-]+$/;
 
-// An alert that has waited this long is old news: "dropped below 40s" from
-// yesterday would only mislead. It stays in the site's history, unsent.
+// Older alerts are stale and are left unsent.
 const MAX_AGE_SECONDS = 6 * 60 * 60;
-// Discord rejects messages over 2000 characters, so long batches are split.
+// Discord's limit is 2000 characters.
 const MAX_MESSAGE_LENGTH = 1900;
 
 export interface NotifyOptions {
   db: Db;
   webhookUrl: string;
-  // The site's address, e.g. https://example.sslip.io - makes item names links.
+  // Makes item names links.
   siteUrl?: string | undefined;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
@@ -46,7 +35,7 @@ interface PendingAlert {
   price: number;
 }
 
-// 123456 -> "12g 34s 56c". Zero parts are left out: 4000 -> "40s".
+// 123456 -> "12g 34s 56c"; zero parts are left out.
 export function formatCopper(copper: number): string {
   const gold = Math.floor(copper / 10_000);
   const silver = Math.floor((copper % 10_000) / 100);
@@ -55,17 +44,16 @@ export function formatCopper(copper: number): string {
   return parts.filter(Boolean).join(" ") || "0c";
 }
 
-// One line of the Discord message for one alert.
 export function alertLine(alert: PendingAlert, siteUrl?: string): string {
   const label = alert.name ?? `Item #${alert.itemId}`;
-  // [text](address) is Discord's link syntax; <...> stops it adding a preview box.
+  // <...> stops Discord adding a link preview.
   const item = siteUrl ? `[**${label}**](<${siteUrl}/item/${alert.itemId}>)` : `**${label}**`;
   return alert.direction === "below"
     ? `📉 ${item} is down to **${formatCopper(alert.price)}** (alert: ${formatCopper(alert.threshold)} or less)`
     : `📈 ${item} is up to **${formatCopper(alert.price)}** (alert: ${formatCopper(alert.threshold)} or more)`;
 }
 
-// Groups lines into as few messages as fit Discord's length limit.
+// As few messages as fit the length limit.
 function intoMessages(alerts: PendingAlert[], siteUrl?: string): Array<{ content: string; ids: number[] }> {
   const messages: Array<{ content: string; ids: number[] }> = [];
   for (const alert of alerts) {
@@ -109,16 +97,16 @@ export async function sendPendingAlerts(options: NotifyOptions): Promise<NotifyR
       const response = await doFetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // allowed_mentions: an item name can never ping @everyone.
+        // Item names can never ping anyone.
         body: JSON.stringify({ content: message.content, allowed_mentions: { parse: [] } }),
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) problem = `Discord answered ${response.status}`;
     } catch {
-      // Deliberately not the error's own text: it can contain the address.
+      // Not the error's own text: it can contain the address.
       problem = "could not reach Discord";
     }
-    // Stop at the first failure. What was sent stays marked; the rest waits.
+    // Stop at the first failure; the rest waits for the next run.
     if (problem) return { sent, error: problem };
 
     for (const id of message.ids) markSent.run(now, id);

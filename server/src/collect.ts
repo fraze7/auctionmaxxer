@@ -1,5 +1,4 @@
-// Runs the collector once and exits. Run with: npm run collect
-// For the long-running hourly version, see scheduler.ts (npm start).
+// Runs the collector once and exits: npm run collect
 import { createSource, loadConfig } from "./config.js";
 import { openDb } from "./db.js";
 import { runJob } from "./job.js";

@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# One-time setup of public HTTPS access with a login. Runs ON THE SERVER, as
-# root. Safe to run again.
-#
-# From your PC (Git Bash), in the repo root - SITE_HOST is the address the
-# site will have. With no domain of your own, sslip.io gives every IP a name:
-# 203.0.113.7 becomes 203-0-113-7.sslip.io.
-#
+# One-time setup of HTTPS with a login. Runs on the server as root; safe to re-run.
+# From the repo root on your PC (sslip.io names any IP: 203-0-113-7.sslip.io):
 #   tar -c -C deploy Caddyfile set-password.sh https-setup.sh |
 #     ssh auctionmaxxer 'rm -rf /tmp/https && mkdir /tmp/https && tar -x -C /tmp/https &&
 #       bash /tmp/https/https-setup.sh YOUR-ADDRESS.sslip.io'
-#
-# The site comes up LOCKED: nobody can log in until you choose a password with
-#   ssh -t auctionmaxxer auctionmaxxer-set-password
+# The site comes up locked until you run: ssh -t auctionmaxxer auctionmaxxer-set-password
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
@@ -29,14 +22,12 @@ echo "==> Installing config for ${SITE_HOST}"
 install -m 644 "${HERE}/Caddyfile" /etc/caddy/Caddyfile
 install -m 755 "${HERE}/set-password.sh" /usr/local/sbin/auctionmaxxer-set-password
 
-# Tell Caddy which address to serve (the Caddyfile reads SITE_HOST). It lives
-# in one small file that both the service and set-password.sh read.
+# Read by both the Caddy service and set-password.sh.
 printf 'SITE_HOST=%s\n' "${SITE_HOST}" > /etc/caddy/site.env
 mkdir -p /etc/systemd/system/caddy.service.d
 printf '[Service]\nEnvironmentFile=/etc/caddy/site.env\n' > /etc/systemd/system/caddy.service.d/site.conf
 
-# No login yet? Lock the door: a random password that is thrown away at once,
-# so the site is never reachable without one. An existing login is kept.
+# No login yet: lock the site with a random, discarded password.
 if [ ! -s /etc/caddy/auth.conf ]; then
   hash=$(printf '%s\n' "$(head -c 32 /dev/urandom | base64)" | caddy hash-password)
   printf 'basicauth {\n\tlocked %s\n}\n' "${hash}" > /etc/caddy/auth.conf

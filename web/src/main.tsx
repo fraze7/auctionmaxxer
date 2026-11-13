@@ -5,9 +5,7 @@ import { BrowserRouter } from 'react-router'
 import App from './App.tsx'
 import './index.css'
 
-// TanStack Query fetches, caches and re-fetches API data for us.
-// Blizzard only publishes one snapshot an hour, so data stays "fresh" for a
-// minute and one retry is plenty.
+// Snapshots are hourly, so a minute of freshness and one retry are plenty.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },

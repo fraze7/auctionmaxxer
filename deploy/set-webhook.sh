@@ -1,17 +1,8 @@
 #!/usr/bin/env bash
-# Connects watchlist alerts to a Discord channel (or disconnects them).
-# Installed on the server as /usr/local/sbin/auctionmaxxer-set-webhook by
-# deploy.sh.
-#
-# Run it from your PC and paste the webhook address when asked:
+# Connects watchlist alerts to a Discord channel, or disconnects them.
 #   ssh -t auctionmaxxer auctionmaxxer-set-webhook
-#
-# Where the address comes from: in Discord, open the channel's settings ->
-# Integrations -> Webhooks -> New Webhook -> Copy Webhook URL.
-#
-# The address works like a password - anyone who has it can post to that
-# channel - so it is typed here instead of being put in the code or in git.
-# It ends up in server/.env, which only the app's own user can read.
+# The webhook address (channel settings -> Integrations -> Webhooks) works like
+# a password, so it is typed here and stored only in server/.env.
 set -euo pipefail
 
 ENV_FILE=/opt/auctionmaxxer/server/.env
@@ -20,7 +11,6 @@ if [ ! -f "${ENV_FILE}" ]; then
   exit 1
 fi
 
-# -s: don't show the address on screen as it is pasted.
 read -r -s -p "Discord webhook address (hidden; leave empty to turn alerts off): " url
 echo
 
@@ -31,9 +21,8 @@ if [ -n "${url}" ]; then
     exit 1
   fi
 
-  # Prove it works before saving it: post a hello message. The address goes
-  # to curl on standard input, not as an argument, so it never shows up in the
-  # server's process list.
+  # Send a test message before saving. The address goes to curl on stdin, not as
+  # an argument, so it never appears in the process list.
   status=$(printf 'url = "%s"\n' "${url}" |
     curl --silent --output /dev/null --write-out '%{http_code}' --max-time 15 \
       --header 'Content-Type: application/json' \
@@ -46,9 +35,7 @@ if [ -n "${url}" ]; then
   echo "Test message sent - check the channel."
 fi
 
-# Rewrite .env without the old lines, then add the new ones. The copy is made
-# private (umask 077) and written back INTO the existing file, so the file
-# keeps its owner and permissions.
+# Written back into the existing file so it keeps its owner and permissions.
 umask 077
 tmp=$(mktemp)
 trap 'rm -f "${tmp}"' EXIT
@@ -56,7 +43,7 @@ grep -v -E '^(DISCORD_WEBHOOK_URL|SITE_URL)=' "${ENV_FILE}" > "${tmp}" || true
 
 if [ -n "${url}" ]; then
   printf 'DISCORD_WEBHOOK_URL=%s\n' "${url}" >> "${tmp}"
-  # The site's address, so item names in alerts link to their page.
+  # So item names in alerts link to the site.
   if [ -f /etc/caddy/site.env ]; then
     . /etc/caddy/site.env
     [ -n "${SITE_HOST:-}" ] && printf 'SITE_URL=https://%s\n' "${SITE_HOST}" >> "${tmp}"
@@ -66,7 +53,7 @@ unset url
 
 cat "${tmp}" > "${ENV_FILE}"
 
-# Both programs read .env only when they start.
+# Both services read .env only at start-up.
 systemctl restart auctionmaxxer auctionmaxxer-api
 if grep -q '^DISCORD_WEBHOOK_URL=' "${ENV_FILE}"; then
   echo "Done. Watchlist alerts now go to Discord."

@@ -1,5 +1,4 @@
-// Tests for ForeverSource. No network: a fake `fetch` plays Blizzard's part
-// and records every request, so we can check what was sent.
+// No network: a fake fetch plays Blizzard and records every request.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ForeverSource } from "./foreverSource.js";
@@ -35,8 +34,7 @@ const commoditiesBody = {
   auctions: [{ id: 2, item: { id: 2447 }, quantity: 5, unit_price: 36, time_left: "SHORT" }],
 };
 
-// Builds a ForeverSource wired to a fake fetch. `routes` maps a URL to what
-// the fake Blizzard answers; an unknown URL fails the test.
+// `routes` maps a URL to the fake answer; an unknown URL fails the test.
 function setup(routes: Record<string, Handler>) {
   const calls: Call[] = [];
   const sleeps: number[] = [];
@@ -231,7 +229,7 @@ describe("ForeverSource token", () => {
     await t.source.getItem(2447);
 
     assert.equal(t.countCalls(TOKEN_URL), 1);
-    // The secret goes to the token endpoint as Basic auth, base64 of "id:secret".
+    // Basic auth: base64 of "id:secret".
     const tokenCall = t.calls.find((c) => c.url === TOKEN_URL);
     assert.equal(tokenCall?.headers.Authorization, `Basic ${btoa("id:secret")}`);
   });

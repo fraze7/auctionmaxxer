@@ -7,9 +7,6 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatDateTime } from '../format.ts'
 import { RemoveButton, RuleText, useWatchlist, WatchStatus } from '../watchlist.tsx'
 
-// Your price alerts: every rule with the item's price right now, and a log of
-// each time one fired. Rules are added from an item's own page.
-
 const WATCH_COLUMNS: Column<Watch>[] = [
   {
     key: 'item',
@@ -48,7 +45,7 @@ const WATCH_COLUMNS: Column<Watch>[] = [
         {w.triggeredAt && <span className="ml-2 text-xs text-zinc-500">since {formatDateTime(w.triggeredAt)}</span>}
       </span>
     ),
-    // Triggered rules first when sorted.
+    // Triggered rules first.
     sortValue: (w) => (w.triggeredAt !== null ? 0 : 1),
   },
   { key: 'remove', header: '', align: 'right', render: (w) => <RemoveButton id={w.id} /> },
@@ -138,7 +135,7 @@ export function WatchlistPage() {
   )
 }
 
-// "12% above" - how far the price still has to move, or how far past it is.
+// How far the current price is from the alert price.
 function Gap({ watch }: { watch: Watch }) {
   if (watch.currentMin === null) return <span className="text-zinc-600">-</span>
   const percent = Math.round(((watch.currentMin - watch.threshold) / watch.threshold) * 100)

@@ -1,11 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 
-// A dense table that every page reuses. Each page describes its columns;
-// the table handles layout and, for columns that give a `sortValue`,
-// click-to-sort headers.
-//
-// <T> is the row type: DataTable<Deal> knows each row is a Deal, so a
-// column's render function gets a properly typed row.
+// A dense table shared by every page. Columns with a `sortValue` are sortable.
 
 export interface Column<T> {
   key: string
@@ -13,7 +8,7 @@ export interface Column<T> {
   title?: string // tooltip explaining the column
   align?: 'left' | 'right'
   render: (row: T) => ReactNode
-  // What to sort by. Leave it out to make the column unsortable.
+  // Leave out to make the column unsortable.
   sortValue?: (row: T) => number | string | null
 }
 
@@ -32,8 +27,6 @@ interface Props<T> {
 export function DataTable<T>({ rows, columns, rowKey, initialSort }: Props<T>) {
   const [sort, setSort] = useState<Sort | undefined>(initialSort)
 
-  // useMemo: only re-sort when the rows or the sort actually change, not on
-  // every re-render.
   const sorted = useMemo(() => {
     const column = columns.find((c) => c.key === sort?.key)
     const sortValue = column?.sortValue
@@ -43,7 +36,7 @@ export function DataTable<T>({ rows, columns, rowKey, initialSort }: Props<T>) {
     return [...rows].sort((a, b) => {
       const x = sortValue(a)
       const y = sortValue(b)
-      // Missing values go last whichever way we sort.
+      // Missing values go last in either direction.
       if (x === null && y === null) return 0
       if (x === null) return 1
       if (y === null) return -1

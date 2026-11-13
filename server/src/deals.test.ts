@@ -1,5 +1,3 @@
-// Tests for the deals rule. The pure rule first, then findDeals against an
-// in-memory database filled with fake hourly history.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { openDb, type Db } from "./db.js";
@@ -19,7 +17,7 @@ const settings: Settings = {
   dealMinProfit: 1,
 };
 
-// `count` copies of a price: a flat stretch of hourly history.
+// A flat stretch of hourly history.
 const flat = (price: number, count: number): number[] => Array<number>(count).fill(price);
 
 describe("median", () => {
@@ -85,7 +83,7 @@ describe("evaluateItem", () => {
   });
 });
 
-// --- findDeals against a database --------------------------------------------
+// --- findDeals against a database ---
 
 const HOUSE = 113;
 const CHEAP_NOW = 1; // flat at 100c, then 60c in the latest snapshot -> a deal
@@ -110,7 +108,7 @@ function priceAt(itemId: number, hoursAgo: number): number | null {
   }
 }
 
-// `hours` hourly snapshots ending at NOW, with the five items above.
+// `hours` hourly snapshots ending at NOW.
 function seed(hours: number): Db {
   const db = openDb(":memory:");
   const snapshot = db.prepare(
@@ -158,7 +156,7 @@ describe("findDeals", () => {
     assert.deepEqual(
       result.deals.map((d) => [d.id, d.name, d.profitPerUnit, d.buyQty, d.totalProfit]),
       [
-        // Same 35c profit per unit (95 - 60), but far more units to buy.
+        // Same profit per unit, far more units.
         [BIG_STACK, "Big Stack", 35, 1000, 35_000],
         [CHEAP_NOW, "Cheap Now", 35, 10, 350],
       ],
@@ -193,7 +191,7 @@ describe("findDeals", () => {
   });
 
   it("only looks at the last 7 days", () => {
-    // 400 hours of history: the window still holds 168 snapshots.
+    // The window still holds only 168 snapshots.
     assert.equal(find(seed(400)).snapshotsInWindow, 168);
   });
 

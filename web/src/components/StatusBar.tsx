@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api.ts'
 import { formatDuration, formatNumber } from '../format.ts'
 
-// The "last updated" line in the header. Re-checks every minute.
 export function LastUpdated() {
   const { data } = useStatus()
   if (!data?.lastSnapshot) return null
@@ -14,8 +13,7 @@ export function LastUpdated() {
   )
 }
 
-// A warning across the top when the newest snapshot is over 2 hours old, so
-// you never act on dead prices without knowing it.
+// A warning when the newest snapshot is over 2 hours old.
 export function StaleBanner() {
   const { data } = useStatus()
   if (!data?.stale) return null
@@ -29,7 +27,7 @@ export function StaleBanner() {
   )
 }
 
-// Both components above share one query: same key, so only one request.
+// Same query key, so both components share one request.
 function useStatus() {
   return useQuery({ queryKey: ['status'], queryFn: api.status, refetchInterval: 60_000 })
 }

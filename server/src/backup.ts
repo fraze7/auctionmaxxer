@@ -4,12 +4,8 @@ import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import type { Db } from "./db.js";
 
-// Makes a dated, compressed copy of the database and deletes old copies.
-//
-// Why not just copy the .db file? The collector may be writing to it at that
-// moment, and a plain file copy could catch it half-written. `VACUUM INTO`
-// asks SQLite itself to write a clean, consistent copy - safe while the
-// collector keeps running.
+// Makes a dated, gzipped copy of the database and deletes old copies.
+// VACUUM INTO gives a consistent copy even while the collector is writing.
 
 export const DEFAULT_KEEP = 14; // two weeks of nightly backups
 
@@ -36,17 +32,14 @@ export async function backupDatabase(options: BackupOptions): Promise<BackupResu
   const plain = join(dir, `auctionmaxxer-${date}.db`);
   const file = `${plain}.gz`;
 
-  // VACUUM INTO refuses to overwrite, so clear out a leftover from a crashed
-  // earlier attempt. A second backup on the same day replaces the first.
+  // VACUUM INTO won't overwrite; a same-day backup replaces the earlier one.
   rmSync(plain, { force: true });
   db.prepare("VACUUM INTO ?").run(plain);
 
-  // Compress it (the data is repetitive, so it shrinks a lot), then drop the
-  // uncompressed copy.
   await pipeline(createReadStream(plain), createGzip(), createWriteStream(file));
   rmSync(plain);
 
-  // The date in the name sorts correctly as text, so newest = last.
+  // Dated names sort as text, so newest is last.
   const backups = readdirSync(dir)
     .filter((name) => BACKUP_NAME.test(name))
     .sort();

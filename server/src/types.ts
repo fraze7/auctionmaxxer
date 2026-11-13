@@ -1,31 +1,20 @@
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Why zod schemas instead of plain interfaces?
-// Blizzard's Forever API is undocumented, so we can't trust its shape. Each
-// schema below does two jobs: it checks every response at runtime (parse fails
-// loudly if Blizzard changes something), and `z.infer` turns it into the
-// TypeScript type, so the check and the type can never drift apart.
-//
-// Field names stay in Blizzard's snake_case (unit_price, time_left) so the
-// schemas match the JSON exactly. Our own types further down use camelCase.
-//
-// Shapes are based on a survey of house 113's snapshot on 9 Nov 2026:
-// 170,238 item listings and 96,640 commodity listings.
-// ---------------------------------------------------------------------------
+// Zod schemas for Blizzard's undocumented API: each validates responses at
+// runtime and gives the TypeScript type via z.infer. Fields keep Blizzard's
+// snake_case; our own types below use camelCase.
+// Shapes are based on house 113's snapshot of 9 Nov 2026.
 
-// Every value seen in that snapshot. An unknown value fails validation,
-// which is what we want: better to stop than to store data we don't understand.
+// Unknown values fail validation on purpose.
 export const TimeLeftSchema = z.enum(["SHORT", "MEDIUM", "LONG", "VERY_LONG"]);
 export type TimeLeft = z.infer<typeof TimeLeftSchema>;
 
-// Prices are integers in copper (1g = 10,000c). Never floats: rounding bugs.
+// Integer copper (1g = 10,000c), never floats.
 const copper = z.number().int().nonnegative();
 const id = z.number().int().positive();
 
-// --- Commodities: herbs, ore, cloth, reagents (what v1 tracks) -------------
+// --- Commodities (what v1 tracks) ---
 
-// Commodity listings only ever had `item.id` - no variants.
 export const CommodityListingSchema = z.object({
   id,
   item: z.object({ id }),
@@ -39,18 +28,16 @@ export const CommoditiesResponseSchema = z.object({
   auctions: z.array(CommodityListingSchema),
 });
 
-// --- Item listings: gear and other non-stackables (ignored in v1) ----------
+// --- Item listings: gear (ignored in v1) ---
 
-// Seen as { "type": 28, "value": 5256 }. What the numbers mean is unknown.
+// Seen as { type: 28, value: 5256 }; meaning unknown.
 export const ItemModifierSchema = z.object({
   type: z.number().int(),
   value: z.number().int(),
 });
 
-// `id` is always present. The rest appear on some listings only:
-// bonus_lists on 29,786, context on 26,410, modifiers on 20,507.
-// bonus_lists most likely marks variants ("of the Bear" vs "of the Eagle"),
-// which is why gear needs grouping by id + bonus_lists before we track it.
+// Only `id` is always present. bonus_lists probably marks variants, so gear
+// needs grouping by id + bonus_lists before it can be tracked.
 export const ItemRefSchema = z.object({
   id,
   bonus_lists: z.array(z.number().int()).optional(),
@@ -59,8 +46,7 @@ export const ItemRefSchema = z.object({
 });
 export type ItemRef = z.infer<typeof ItemRefSchema>;
 
-// Every item listing had quantity 1, so `buyout` is the price of one item.
-// buyout was missing on 6 listings (bid-only auctions); bid appeared on 475.
+// Quantity is always 1. buyout is missing on bid-only auctions.
 export const ItemListingSchema = z.object({
   id,
   item: ItemRefSchema,
@@ -71,27 +57,24 @@ export const ItemListingSchema = z.object({
 });
 export type ItemListing = z.infer<typeof ItemListingSchema>;
 
-// The house endpoint returns item listings inline, but commodities only as a
-// link. We follow `commodities.href` rather than building that URL ourselves.
+// Item listings come inline; commodities only as a link.
 export const HouseResponseSchema = z.object({
   id,
   auctions: z.array(ItemListingSchema),
   commodities: z.object({ href: z.string() }),
 });
 
-// --- Our own types (not Blizzard's JSON) -----------------------------------
+// --- Our own types ---
 
 export interface House {
   id: number;
-  // One name only (en_GB). The API sends every language; we don't need them.
+  // en_GB only.
   name: string;
 }
 
 export interface Snapshot {
   houseId: number;
-  // When Blizzard took the snapshot, from the Last-Modified header, in Unix
-  // seconds (UTC). A plain integer is the easiest thing to store in SQLite,
-  // sort and compare - and it's never the time our script happened to run.
+  // From Last-Modified, Unix seconds UTC. Never the time our script ran.
   takenAt: number;
   commodities: CommodityListing[];
   items: ItemListing[];
@@ -103,26 +86,24 @@ export interface ItemInfo {
   quality?: string; // e.g. "UNCOMMON"; optional until we know Forever sends it
 }
 
-// --- Other Blizzard responses (checked against the live API, 12 Nov 2026) ---
+// --- Other Blizzard responses ---
 
-// Names arrive in every language at once: { en_US: "...", de_DE: "...", ... }.
-// We only read en_GB; zod drops the other keys.
+// Names arrive in every language; we read en_GB only.
 const LocalizedNameSchema = z.object({ en_GB: z.string() });
 
-// GET /data/wow/ruleset/{id}/auctions/ - the houses in one ruleset.
+// GET /data/wow/ruleset/{id}/auctions/
 export const HousesIndexResponseSchema = z.object({
   auctions: z.array(z.object({ id, name: LocalizedNameSchema })),
 });
 
-// GET /data/wow/item/{id}. There's much more in the response (level, media,
-// item class); we take only what the UI shows.
+// GET /data/wow/item/{id}
 export const ItemResponseSchema = z.object({
   id,
   name: LocalizedNameSchema,
   quality: z.object({ type: z.string() }).optional(),
 });
 
-// POST https://oauth.battle.net/token. expires_in is in seconds (about 24h).
+// POST https://oauth.battle.net/token. expires_in is in seconds.
 export const TokenResponseSchema = z.object({
   access_token: z.string().min(1),
   expires_in: z.number().positive(),

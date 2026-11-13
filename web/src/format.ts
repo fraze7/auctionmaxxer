@@ -1,5 +1,3 @@
-// Small pure helpers for turning raw numbers into text. No React in here.
-
 export interface Coins {
   negative: boolean
   gold: number
@@ -7,7 +5,7 @@ export interface Coins {
   copper: number
 }
 
-// 123456 copper -> 12 gold, 34 silver, 56 copper. (1g = 100s = 10,000c)
+// 123456 copper -> 12 gold, 34 silver, 56 copper.
 export function toCoins(totalCopper: number): Coins {
   const abs = Math.abs(Math.round(totalCopper))
   return {
@@ -18,7 +16,7 @@ export function toCoins(totalCopper: number): Coins {
   }
 }
 
-// "5 min", "3 h", "2 d" - how long a number of seconds is, roughly.
+// "5 min", "3 h", "2 d"
 export function formatDuration(seconds: number): string {
   if (seconds < 90) return 'a minute'
   if (seconds < 90 * 60) return `${Math.round(seconds / 60)} min`
@@ -31,14 +29,13 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('en-GB')
 }
 
-// 0.7 -> "-30%", 1.2 -> "+20%": how far the last day sits from the week.
+// 0.7 -> "-30%", 1.2 -> "+20%"
 export function formatTrend(ratio: number): string {
   const percent = Math.round((ratio - 1) * 100)
   return `${percent > 0 ? '+' : ''}${percent}%`
 }
 
-// A short price for chart axes, where "1g 23s 45c" would not fit:
-// 45 -> "45c", 2345 -> "23s", 123456 -> "12g", 15000 -> "1.5g".
+// For chart axes: 45 -> "45c", 2345 -> "23s", 15000 -> "1.5g".
 export function formatCopperShort(copper: number): string {
   if (copper >= 10_000) {
     const gold = copper / 10_000
@@ -59,7 +56,7 @@ export function formatCountShort(value: number): string {
   return String(Math.round(value))
 }
 
-// A snapshot time in the viewer's own time zone: "Thu 12 Nov, 22:25".
+// In the viewer's time zone: "Thu 12 Nov, 22:25".
 export function formatDateTime(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString('en-GB', {
     weekday: 'short',
