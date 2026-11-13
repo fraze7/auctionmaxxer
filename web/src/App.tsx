@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
 import { LastUpdated, StaleBanner } from './components/StatusBar.tsx'
 import { DealsPage } from './pages/DealsPage.tsx'
+import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 
@@ -15,6 +16,7 @@ export default function App() {
           <nav className="flex gap-1 text-sm">
             <Tab to="/">Deals</Tab>
             <Tab to="/items">Items</Tab>
+            <Tab to="/favor">Favor</Tab>
           </nav>
           <span className="ml-auto">
             <LastUpdated />
@@ -28,6 +30,7 @@ export default function App() {
           <Route path="/" element={<DealsPage />} />
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/item/:id" element={<ItemPage />} />
+          <Route path="/favor" element={<FavorPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

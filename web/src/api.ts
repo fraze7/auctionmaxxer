@@ -164,3 +164,62 @@ export const itemApi = {
   detail: (id: number) => get<ItemDetail>(`/api/items/${id}`),
   history: (id: number, days: number) => get<ItemHistory>(`/api/items/${id}/history`, { days }),
 }
+
+// --- Merchant's Favor ----------------------------------------------------------
+
+export interface FavorBundle {
+  itemId: number | null // null = an item we've never seen, so it has no price
+  itemName: string
+  quantity: number
+  cost: number | null // copper for the whole bundle; null = can't buy that many
+  listed: number
+}
+
+export interface FavorCrate {
+  itemId: number
+  name: string
+  tier: 'Apprentice' | 'Journeyman' | 'Expert' | 'Artisan'
+  crafted: boolean
+  favor: number
+  favorEstimated: boolean
+  cratePrice: number | null
+  cratesListed: number
+  bundles: FavorBundle[]
+  best: {
+    bundleIndex: number
+    crateCost: number
+    materialsCost: number
+    totalCost: number
+    copperPerFavor: number
+  } | null
+}
+
+export interface FavorPlanStep {
+  crateId: number
+  crateName: string
+  favorEach: number
+  favorEstimated: boolean
+  bundleItemId: number
+  bundleItemName: string
+  bundleQuantity: number
+  count: number
+  crateCost: number
+  materialsCost: number
+}
+
+export interface FavorResponse {
+  house: number
+  takenAt: number | null
+  crates: FavorCrate[] // cheapest per favor first
+  plan: {
+    target: number
+    favor: number
+    totalCost: number
+    complete: boolean
+    steps: FavorPlanStep[]
+  }
+}
+
+export const favorApi = {
+  get: (target: number) => get<FavorResponse>('/api/favor', { target }),
+}
