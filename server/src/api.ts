@@ -2,6 +2,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { z } from "zod";
 import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
+import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadSettings } from "./settings.js";
 
 // The HTTP API the web app reads from. It only ever reads our own SQLite
@@ -58,6 +59,12 @@ const DealsQuery = z.object({
   minProfit: z.coerce.number().int().min(0).optional(), // copper per unit
   maxQty: positiveInt.optional(), // most units you'd buy of one item
   limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+const FavorQuery = z.object({
+  house: houseParam,
+  // How much Merchant's Favor you want. Recipes cost 30, 60 or 90.
+  target: z.coerce.number().int().min(1).max(5000).default(90),
 });
 
 const ItemParams = z.object({ id: positiveInt });
@@ -370,6 +377,28 @@ export function createApp(options: ApiOptions): Express {
         itemsJudged: result.itemsJudged,
       },
       deals: result.deals,
+    });
+  });
+
+  // GET /api/favor?house=&target=90
+  // The cheapest way to buy Merchant's Favor: every Waylaid Crate priced per
+  // favor, and a shopping plan that reaches `target`. Explained in favor.ts.
+  app.get("/api/favor", (req, res) => {
+    const query = parse(FavorQuery, req.query);
+    const houseId = query.house ?? defaultHouseId;
+    const data = loadFavorData(db, houseId);
+
+    // Cheapest per favor first; crates that can't be filled right now go last.
+    const crates = priceCrates(data.crates, data.books).sort((a, b) => {
+      if (!a.best || !b.best) return (a.best ? 0 : 1) - (b.best ? 0 : 1) || a.itemId - b.itemId;
+      return a.best.copperPerFavor - b.best.copperPerFavor || a.itemId - b.itemId;
+    });
+
+    res.json({
+      house: houseId,
+      takenAt: data.takenAt,
+      crates,
+      plan: planFavor(data.crates, data.books, query.target),
     });
   });
 
