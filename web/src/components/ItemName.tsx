@@ -48,11 +48,7 @@ export function ItemName({ id, name, quality, link = true }: Props) {
       ) : (
         <span className={color}>{label}</span>
       )}
-      {name === null ? (
-        <a href={`https://www.wowhead.com/item=${id}`} target="_blank" rel="noreferrer" className={smallButton}>
-          wowhead
-        </a>
-      ) : (
+      {name !== null && (
         <button
           type="button"
           onClick={() => copy(name)}
@@ -62,6 +58,30 @@ export function ItemName({ id, name, quality, link = true }: Props) {
           {copied ? 'copied' : 'copy'}
         </button>
       )}
+      <a
+        href={wowheadUrl(id, name)}
+        target="_blank"
+        rel="noreferrer"
+        title="Open this item on Wowhead"
+        className={smallButton}
+      >
+        wowhead
+      </a>
     </span>
   )
+}
+
+// Wowhead's address for an item in WoW: Forever, e.g.
+//   https://www.wowhead.com/forever/item=12365/dense-stone
+// The part after the ID is the name in lowercase with dashes. Wowhead only
+// needs the ID to find the item, so an unnamed item just leaves it off.
+export function wowheadUrl(id: number, name: string | null): string {
+  const base = `https://www.wowhead.com/forever/item=${id}`
+  if (name === null) return base
+  const slug = name
+    .toLowerCase()
+    .replace(/'/g, '') // "Crusader's Helm" -> "crusaders helm"
+    .replace(/[^a-z0-9]+/g, '-') // anything else that isn't a letter or digit -> dash
+    .replace(/^-+|-+$/g, '') // no dash at either end
+  return slug ? `${base}/${slug}` : base
 }
