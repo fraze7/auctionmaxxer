@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
-import { loadMarket, MAX_SKILL, planLevelling, type Profession } from "./levelling.js";
+import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
 import { BLACKSMITHING } from "./professions/blacksmithing.js";
 import { TAILORING } from "./professions/tailoring.js";
@@ -73,6 +73,7 @@ const LevellingQuery = z
     profession: z.enum(["alchemy", "blacksmithing", "tailoring"]).default("alchemy"),
     from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
+    helperSkill: z.coerce.number().int().min(0).max(MAX_SKILL).default(0),
   })
   .refine((query) => query.from < query.to, { path: ["to"], message: "must be above from" });
 
@@ -403,17 +404,19 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/levelling?profession=&from=&to=&house=  - see levelling.ts
+  // GET /api/levelling?profession=&from=&to=&helperSkill=&house=  - see levelling.ts
   app.get("/api/levelling", (req, res) => {
     const query = parse(LevellingQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
-    const profession: Profession = PROFESSIONS[query.profession];
+    const base: Profession = PROFESSIONS[query.profession];
+    const profession = withHelper(base, query.helperSkill);
     const { takenAt, market } = loadMarket(db, houseId, profession);
 
     res.json({
       house: houseId,
       takenAt,
       profession: { id: profession.id, name: profession.name },
+      helper: base.helper ? { id: base.helper.id, name: base.helper.name, skill: query.helperSkill } : null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       ...planLevelling(profession, market, query.from, query.to),
     });

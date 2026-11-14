@@ -1,4 +1,5 @@
 import type { Profession, Recipe } from "../levelling.js";
+import { MINING } from "./mining.js";
 import { r } from "./recipe.js";
 
 // Blacksmithing recipes for WoW: Forever, from Wowhead's spell list (14 Nov
@@ -115,6 +116,7 @@ const RECIPES: Recipe[] = [
 export const BLACKSMITHING: Profession = {
   id: "blacksmithing",
   name: "Blacksmithing",
+  helper: MINING,
   recipes: RECIPES,
   // Sold by trade vendors; prices from Wowhead.
   vendorPrices: { [WEAK_FLUX]: 100, [STRONG_FLUX]: 2000, [THREAD]: 10, [GREEN_DYE]: 100 },

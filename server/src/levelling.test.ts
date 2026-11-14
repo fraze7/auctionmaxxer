@@ -8,6 +8,8 @@ import {
   MAX_SKILL,
   planLevelling,
   skillUpChance,
+  withHelper,
+  type Helper,
   type Market,
   type Profession,
   type Recipe,
@@ -228,6 +230,42 @@ describe("planLevelling", () => {
     );
   });
 
+  describe("with a helper profession", () => {
+    // Herb A (item 1) can be milled from Root (item 5) at helper skill 50.
+    const helper: Helper = {
+      id: "milling",
+      name: "Milling",
+      recipes: [{ ...recipe("Mill", 50, 50, 50, [[5, 1]]), makes: { itemId: 1, quantity: 1 } }],
+      vendorPrices: {},
+      itemNames: { 5: "Root" },
+    };
+    const helpedTest: Profession = { ...TEST, helper };
+    const books = market({ 1: [[10, 1000]], 5: [[2, 1000]] });
+
+    it("makes reagents from the helper's inputs when that is cheaper", () => {
+      const plan = planLevelling(withHelper(helpedTest, 50), books, 1, 10);
+      assert.equal(plan.totalCost, 9 * 2 + 9 * 5);
+      assert.deepEqual(
+        plan.steps[0]?.materials.map((m) => [m.name, m.quantity, m.via]),
+        [
+          ["Root", 9, { name: "Herb A", quantity: 9 }],
+          ["Vial", 9, undefined],
+        ],
+      );
+    });
+
+    it("ignores helper recipes above the helper skill, or with no helper skill", () => {
+      for (const skill of [0, 49]) {
+        assert.equal(planLevelling(withHelper(helpedTest, skill), books, 1, 10).totalCost, 9 * 10 + 9 * 5);
+      }
+    });
+
+    it("loads order books for the helper's inputs", () => {
+      const ids = withHelper(helpedTest, 50).reagentRecipes?.flatMap((r) => r.reagents.map((x) => x.itemId));
+      assert.deepEqual(ids, [5]);
+    });
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 
@@ -367,6 +405,11 @@ describe("GET /api/levelling", () => {
       const smithing = await get("?profession=blacksmithing");
       assert.equal(smithing.body.profession.name, "Blacksmithing");
       assert.equal(smithing.body.professions.length, 3);
+
+      assert.deepEqual(smithing.body.helper, { id: "mining", name: "Mining", skill: 0 });
+      assert.equal((await get("?profession=blacksmithing&helperSkill=300")).body.helper.skill, 300);
+      assert.equal(empty.body.helper, null);
+      assert.equal((await get("?helperSkill=301")).status, 400);
 
       assert.equal((await get("?from=200&to=150")).status, 400);
       assert.equal((await get("?profession=fishing")).status, 400);

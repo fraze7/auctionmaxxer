@@ -7,7 +7,8 @@ import { costToBuy, type Book, type BookLevel } from "./favor.js";
 // Items made along the way are used as reagents for later steps, and a reagent
 // the profession can craft (a grinding stone) is priced from its own inputs
 // when that is cheaper than buying it. Trainer fees and the sale value of what
-// you craft are not counted.
+// you craft are not counted. With a helper profession (Mining), bars can be
+// smelted from ore the same way.
 
 export interface Recipe {
   spellId: number;
@@ -26,6 +27,29 @@ export interface Profession {
   recipes: Recipe[];
   vendorPrices: Record<number, number>; // copper; unlimited supply
   itemNames: Record<number, string>;
+  helper?: Helper; // a second profession that can make some of the reagents
+  reagentRecipes?: Recipe[]; // set by withHelper: usable for reagents at any skill
+}
+
+// A gathering profession whose recipes make reagents, such as Mining's smelting.
+export interface Helper {
+  id: string;
+  name: string;
+  recipes: Recipe[]; // `learn` is the helper's own skill
+  vendorPrices: Record<number, number>;
+  itemNames: Record<number, string>;
+}
+
+// The profession as levelled by a character with `skill` in its helper.
+export function withHelper(profession: Profession, skill: number): Profession {
+  const helper = profession.helper;
+  if (!helper || skill <= 0) return profession;
+  return {
+    ...profession,
+    reagentRecipes: helper.recipes.filter((recipe) => recipe.learn <= skill),
+    vendorPrices: { ...helper.vendorPrices, ...profession.vendorPrices },
+    itemNames: { ...helper.itemNames, ...profession.itemNames },
+  };
 }
 
 // Chance of a skill point from one craft. Guaranteed below yellow, then falling
@@ -129,7 +153,9 @@ function groupAlternating(choices: Choice[]): void {
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
 
-  const makers = new Map(profession.recipes.map((recipe) => [recipe.makes.itemId, recipe]));
+  const helped = profession.reagentRecipes ?? [];
+  const makers = new Map([...profession.recipes, ...helped].map((recipe) => [recipe.makes.itemId, recipe]));
+  const canMake = (maker: Recipe, skill: number) => helped.includes(maker) || skill >= maker.learn;
   const nameOf = (itemId: number) => profession.itemNames[itemId] ?? `Item #${itemId}`;
 
   const bought = new Map<number, number>();
@@ -161,7 +187,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       const buy = priceOf(itemId, quantity);
       const maker = makers.get(itemId);
       let craft: number | null = null;
-      if (maker && skill >= maker.learn) {
+      if (maker && canMake(maker, skill)) {
         craft = 0;
         for (const input of maker.reagents) {
           const cost = priceOf(input.itemId, (quantity * input.quantity) / maker.makes.quantity);
@@ -289,7 +315,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
           const direct = buyLine(reagent.itemId, toBuy);
           const maker = makers.get(reagent.itemId);
           let inputs: StepMaterial[] | null = null;
-          if (maker && first.skill >= maker.learn) {
+          if (maker && canMake(maker, first.skill)) {
             const batches = Math.ceil(toBuy / maker.makes.quantity);
             const via = { name: nameOf(reagent.itemId), quantity: toBuy };
             inputs = [];
@@ -416,7 +442,8 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
     .get(houseId);
   if (!snapshot) return { takenAt: null, market: new Map() };
 
-  const ids = [...new Set(profession.recipes.flatMap((recipe) => recipe.reagents.map((r) => r.itemId)))];
+  const recipes = [...profession.recipes, ...(profession.reagentRecipes ?? [])];
+  const ids = [...new Set(recipes.flatMap((recipe) => recipe.reagents.map((r) => r.itemId)))];
   // The IDs are our own integers, so building the IN (...) list is safe.
   const idList = ids.join(",");
 

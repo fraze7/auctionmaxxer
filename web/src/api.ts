@@ -312,6 +312,7 @@ export interface LevellingResponse {
   takenAt: number | null
   profession: { id: string; name: string }
   professions: Array<{ id: string; name: string }>
+  helper: { id: string; name: string; skill: number } | null // a second profession that can make reagents
   from: number
   to: number
   reached: number
@@ -324,6 +325,6 @@ export interface LevellingResponse {
 }
 
 export const levellingApi = {
-  get: (params: { profession?: string; from?: number; to?: number }) =>
+  get: (params: { profession?: string; from?: number; to?: number; helperSkill?: number }) =>
     get<LevellingResponse>('/api/levelling', params),
 }

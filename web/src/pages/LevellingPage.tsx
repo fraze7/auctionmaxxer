@@ -6,7 +6,7 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
-import { useUrlParam } from '../useUrlParam.ts'
+import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
@@ -16,9 +16,12 @@ const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring']
 export function LevellingPage() {
   const [chosen, setChosen] = useUrlParam('profession')
   const profession = PROFESSION_IDS.includes(chosen) ? chosen : 'alchemy'
+  // Skill in the helper profession (Mining for Blacksmithing); empty means not trained.
+  const [helperText, setHelperText] = useUrlParam('helper')
+  const helperSkill = Math.min(toWholeNumber(helperText) ?? 0, 300)
   const levelling = useQuery({
-    queryKey: ['levelling', profession],
-    queryFn: () => levellingApi.get({ profession }),
+    queryKey: ['levelling', profession, helperSkill],
+    queryFn: () => levellingApi.get({ profession, helperSkill }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
@@ -50,6 +53,33 @@ export function LevellingPage() {
           ))}
         </div>
       </div>
+
+      {levelling.data?.helper && (
+        <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={helperSkill > 0}
+              onChange={(event) => setHelperText(event.target.checked ? '300' : '')}
+              className="accent-amber-500"
+            />
+            I have {levelling.data.helper.name}
+          </label>
+          {helperSkill > 0 && (
+            <label className="flex items-center gap-2 text-xs text-zinc-400">
+              {levelling.data.helper.name} skill
+              <input
+                type="text"
+                inputMode="numeric"
+                value={helperText}
+                onChange={(event) => setHelperText(event.target.value.replace(/\D/g, '').slice(0, 3))}
+                className="tabular w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+              />
+            </label>
+          )}
+          <span className="text-xs text-zinc-500">Bars are priced from ore when smelting them yourself is cheaper.</span>
+        </div>
+      )}
 
       {levelling.isPending ? (
         <LoadingState />
