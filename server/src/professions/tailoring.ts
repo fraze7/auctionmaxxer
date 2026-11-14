@@ -2,10 +2,11 @@ import type { Profession, Recipe } from "../levelling.js";
 import { r } from "./recipe.js";
 
 // Tailoring recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
-// Trainer recipes and the four starting recipes, plus eight patterns sold by
-// vendors: trainer recipes stop giving points at 255. Left out: drops, quest
-// and reputation patterns, holiday clothes, Mooncloth (cooldown), and the
-// Slippers and Faction Banner (never give skill).
+// Trainer recipes and the four starting recipes, plus nine patterns sold by
+// vendors with no reputation needed (checked in game): trainer recipes stop
+// giving points at 255. Left out: drops, quest and reputation patterns,
+// holiday clothes, Mooncloth (cooldown), and the Slippers and Faction Banner
+// (never give skill).
 
 const COARSE_THREAD = 2320;
 const FINE_THREAD = 2321;
@@ -121,6 +122,7 @@ const RECIPES: Recipe[] = [
   r(18417, "Runecloth Gloves", [230, 245, 275], [13863, 1], [[RUNECLOTH, 4], [8170, 4], [RUNE_THREAD, 1]], true),
   r(18419, "Felcloth Pants", [230, 245, 275], [14107, 1], [[RUNECLOTH, 5], [14256, 4], [RUNE_THREAD, 1]], true),
   r(18423, "Runecloth Boots", [235, 250, 280], [13864, 1], [[RUNECLOTH, 4], [14227, 2], [8170, 4], [RUNE_THREAD, 1]], true),
+  r(1257487, "Runecloth Cuffs", [250, 265, 295], [254123, 1], [[RUNECLOTH, 5], [14227, 1], [RUNE_THREAD, 1]], true),
   r(22902, "Mooncloth Robe", [275, 290, 320], [18486, 1], [[RUNECLOTH, 6], [14342, 4], [13926, 2], [RUNE_THREAD, 2]], true),
 ];
 
