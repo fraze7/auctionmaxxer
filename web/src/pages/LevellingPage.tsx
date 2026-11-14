@@ -6,74 +6,27 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
-import { toWholeNumber, useUpdateUrlParams, useUrlParam } from '../useUrlParam.ts'
 
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
-const MAX_SKILL = 300
-const RANGES = [
-  { from: 1, to: 300, label: '1-300' },
-  { from: 1, to: 150, label: '1-150' },
-  { from: 150, to: 225, label: '150-225' },
-  { from: 225, to: 300, label: '225-300' },
-]
-
 export function LevellingPage() {
-  const [fromText] = useUrlParam('from')
-  const [toText] = useUrlParam('to')
-  const updateUrl = useUpdateUrlParams()
-
-  // Anything invalid in the URL falls back to the full range.
-  const wantedFrom = toWholeNumber(fromText) ?? 1
-  const wantedTo = toWholeNumber(toText) ?? MAX_SKILL
-  const valid = wantedFrom >= 1 && wantedTo <= MAX_SKILL && wantedFrom < wantedTo
-  const from = valid ? wantedFrom : 1
-  const to = valid ? wantedTo : MAX_SKILL
-
   const levelling = useQuery({
-    queryKey: ['levelling', 'alchemy', from, to],
-    queryFn: () => levellingApi.get({ profession: 'alchemy', from, to }),
+    queryKey: ['levelling', 'alchemy'],
+    queryFn: () => levellingApi.get({ profession: 'alchemy' }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="mr-auto">
-          <h1 className="text-lg font-semibold text-zinc-100">
-            {levelling.data?.profession.name ?? 'Profession'} levelling
-          </h1>
-          <p className="text-sm text-zinc-500">
-            The cheapest recipe for each skill point at current auction prices, using trainer recipes only.
-          </p>
-        </div>
-
-        <div className="flex rounded-md border border-zinc-700 text-sm">
-          {RANGES.map((range) => {
-            const active = from === range.from && to === range.to
-            return (
-              <button
-                key={range.label}
-                type="button"
-                aria-pressed={active}
-                onClick={() =>
-                  updateUrl({
-                    from: range.from === 1 ? '' : String(range.from),
-                    to: range.to === MAX_SKILL ? '' : String(range.to),
-                  })
-                }
-                className={[
-                  'tabular px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
-                  active ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
-                ].join(' ')}
-              >
-                {range.label}
-              </button>
-            )
-          })}
-        </div>
+      <div>
+        <h1 className="text-lg font-semibold text-zinc-100">
+          {levelling.data?.profession.name ?? 'Profession'} levelling
+        </h1>
+        <p className="text-sm text-zinc-500">
+          The cheapest recipe for each skill point at current auction prices, using trainer recipes only.
+        </p>
       </div>
 
       {levelling.isPending ? (
