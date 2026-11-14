@@ -292,6 +292,7 @@ export interface LevelMaterial {
   cost: number
   vendor: boolean
   estimated: boolean // priced partly beyond the stored order book
+  via?: { name: string; quantity: number } // bought to craft this reagent
 }
 
 export interface LevelStep {
@@ -301,6 +302,7 @@ export interface LevelStep {
   recipeName: string
   crafts: number
   guaranteed: boolean
+  plan: boolean // needs a bought plan, not a trainer
   materials: LevelMaterial[]
   cost: number
 }

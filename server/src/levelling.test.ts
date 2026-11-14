@@ -13,6 +13,7 @@ import {
   type Recipe,
 } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
+import { BLACKSMITHING } from "./professions/blacksmithing.js";
 import type { CommodityListing } from "./types.js";
 
 const recipe = (name: string, learn: number, yellow: number, grey: number, reagents: Array<[number, number]>): Recipe => ({
@@ -119,32 +120,50 @@ describe("planLevelling", () => {
     assert.equal(plan.steps[0]?.materials[0]?.cost, 4 * 10 + 5 * 50);
   });
 
-  it("uses what earlier steps made before buying more", () => {
-    // Oil (item 3) is made two at a time from herb A, then used by Potion.
-    const oil: Recipe = { ...recipe("Oil", 1, 10, 10, [[1, 1]]), makes: { itemId: 3, quantity: 2 } };
-    const potion = recipe("Potion", 10, 30, 40, [[3, 3]]);
-    const profession: Profession = { ...TEST, recipes: [oil, potion], itemNames: { ...TEST.itemNames, 3: "Oil" } };
-    const plan = planLevelling(profession, market({ 1: [[10, 1000]], 3: [[100, 1000]] }), 1, 20);
+  // Oil (item 3) is made two at a time from herb A, then used by Potion.
+  const oil: Recipe = { ...recipe("Oil", 1, 10, 10, [[1, 1]]), makes: { itemId: 3, quantity: 2 } };
+  const potion = recipe("Potion", 10, 30, 40, [[3, 3]]);
+  const oily: Profession = { ...TEST, recipes: [oil, potion], itemNames: { ...TEST.itemNames, 3: "Oil" } };
 
-    // 9 crafts of Oil leave 18. Ten Potions need 30: 18 from stock, 12 bought.
+  it("uses what earlier steps made, then crafts the rest from its inputs", () => {
+    const plan = planLevelling(oily, market({ 1: [[10, 1000]], 3: [[100, 1000]] }), 1, 20);
+
+    // 9 crafts of Oil leave 18. Ten Potions need 30: 18 from stock, and 12
+    // more made from 6 Herb A (5c an Oil, against 100c to buy one).
     assert.deepEqual(
       plan.steps.map((s) => [s.recipeName, s.crafts, s.cost]),
       [
         ["Oil", 9, 90],
-        ["Potion", 10, 1200],
+        ["Potion", 10, 60],
       ],
     );
     assert.deepEqual(
-      plan.steps[1]?.materials.map((m) => [m.name, m.quantity, m.crafted]),
-      [["Oil", 30, 18]],
-    );
-    assert.deepEqual(
-      plan.shopping.map((m) => [m.name, m.quantity, m.cost]),
+      plan.steps[1]?.materials.map((m) => [m.name, m.quantity, m.crafted, m.via]),
       [
-        ["Oil", 12, 1200],
-        ["Herb A", 9, 90],
+        ["Oil", 18, 18, undefined],
+        ["Herb A", 6, 0, { name: "Oil", quantity: 12 }],
       ],
     );
+    assert.deepEqual(
+      plan.shopping.map((m) => [m.name, m.quantity, m.cost, m.via]),
+      [["Herb A", 15, 150, undefined]],
+    );
+  });
+
+  it("buys a craftable reagent when that is cheaper than its inputs", () => {
+    const plan = planLevelling(oily, market({ 1: [[10, 1000]], 3: [[2, 1000]] }), 1, 20);
+
+    assert.equal(plan.steps[1]?.cost, 12 * 2);
+    assert.deepEqual(
+      plan.steps[1]?.materials.map((m) => [m.name, m.quantity, m.crafted, m.via]),
+      [["Oil", 30, 18, undefined]],
+    );
+  });
+
+  it("crafts a reagent that is not on sale at all", () => {
+    const plan = planLevelling(oily, market({ 1: [[10, 1000]] }), 1, 20);
+    assert.equal(plan.complete, true);
+    assert.equal(plan.steps[1]?.cost, 60);
   });
 
   it("stops where the market runs out", () => {
@@ -232,36 +251,38 @@ describe("loadMarket", () => {
   });
 });
 
-describe("the alchemy recipes", () => {
+for (const PROFESSION of [ALCHEMY, BLACKSMITHING]) {
+describe(`the ${PROFESSION.id} recipes`, () => {
   it("offer a skill-up at every level from 1 to 299", () => {
     for (let skill = 1; skill < MAX_SKILL; skill++) {
       assert.ok(
-        ALCHEMY.recipes.some((r) => skillUpChance(r, skill) > 0),
+        PROFESSION.recipes.some((r) => skillUpChance(r, skill) > 0),
         `no recipe gives a point at ${skill}`,
       );
     }
   });
 
   it("have sane thresholds and a name for every reagent", () => {
-    assert.equal(new Set(ALCHEMY.recipes.map((r) => r.spellId)).size, ALCHEMY.recipes.length);
-    for (const r of ALCHEMY.recipes) {
+    assert.equal(new Set(PROFESSION.recipes.map((r) => r.spellId)).size, PROFESSION.recipes.length);
+    for (const r of PROFESSION.recipes) {
       assert.ok(r.learn <= r.yellow && r.yellow <= r.grey, r.name);
       assert.ok(r.reagents.length > 0, r.name);
       for (const reagent of r.reagents) {
-        assert.ok(ALCHEMY.itemNames[reagent.itemId], `${r.name}: item ${reagent.itemId} has no name`);
+        assert.ok(PROFESSION.itemNames[reagent.itemId], `${r.name}: item ${reagent.itemId} has no name`);
       }
     }
   });
 
   it("can be planned from 1 to 300 when every reagent is on sale", () => {
     const everything: Market = new Map(
-      Object.keys(ALCHEMY.itemNames).map((id) => [Number(id), { book: [{ unitPrice: 100, quantity: 1_000_000 }], exactUnits: 1_000_000 }]),
+      Object.keys(PROFESSION.itemNames).map((id) => [Number(id), { book: [{ unitPrice: 100, quantity: 1_000_000 }], exactUnits: 1_000_000 }]),
     );
-    const plan = planLevelling(ALCHEMY, everything, 1, MAX_SKILL);
+    const plan = planLevelling(PROFESSION, everything, 1, MAX_SKILL);
     assert.equal(plan.complete, true);
     assert.equal(plan.brackets.length, 3);
   });
 });
+}
 
 describe("GET /api/levelling", () => {
   it("returns a plan and rejects a bad range", async () => {
@@ -279,6 +300,10 @@ describe("GET /api/levelling", () => {
       assert.equal(empty.status, 200);
       assert.deepEqual(empty.body.profession, { id: "alchemy", name: "Alchemy" });
       assert.deepEqual([empty.body.from, empty.body.to, empty.body.complete], [1, 300, false]);
+
+      const smithing = await get("?profession=blacksmithing");
+      assert.equal(smithing.body.profession.name, "Blacksmithing");
+      assert.equal(smithing.body.professions.length, 2);
 
       assert.equal((await get("?from=200&to=150")).status, 400);
       assert.equal((await get("?profession=fishing")).status, 400);

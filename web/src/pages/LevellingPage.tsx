@@ -6,27 +6,49 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
+import { useUrlParam } from '../useUrlParam.ts'
 
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
+const PROFESSION_IDS = ['alchemy', 'blacksmithing']
+
 export function LevellingPage() {
+  const [chosen, setChosen] = useUrlParam('profession')
+  const profession = PROFESSION_IDS.includes(chosen) ? chosen : 'alchemy'
   const levelling = useQuery({
-    queryKey: ['levelling', 'alchemy'],
-    queryFn: () => levellingApi.get({ profession: 'alchemy' }),
+    queryKey: ['levelling', profession],
+    queryFn: () => levellingApi.get({ profession }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-zinc-100">
-          {levelling.data?.profession.name ?? 'Profession'} levelling
-        </h1>
-        <p className="text-sm text-zinc-500">
-          The cheapest recipe for each skill point at current auction prices, using trainer recipes only.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-zinc-100">Profession levelling</h1>
+          <p className="text-sm text-zinc-500">
+            The cheapest recipe for each skill point at current auction prices, using trainer recipes where possible.
+          </p>
+        </div>
+
+        <div className="flex rounded-md border border-zinc-700 text-sm">
+          {(levelling.data?.professions ?? []).map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={profession === option.id}
+              onClick={() => setChosen(option.id)}
+              className={[
+                'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
+                profession === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
+              ].join(' ')}
+            >
+              {option.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {levelling.isPending ? (
@@ -77,6 +99,8 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         <p className="text-xs text-zinc-500">
           Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more
           or fewer. Trainer fees are not included, and nothing is deducted for selling what you make.
+          {plan.steps.some((step) => step.plan) &&
+            ' Recipes marked "plan" are learned from plans sold by vendors, not from a trainer; the price of the plan is not included.'}
         </p>
       </section>
 
@@ -125,6 +149,7 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
         >
           {step.recipeName}
         </a>
+        {step.plan && <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>}
       </span>
     ),
   },
@@ -134,11 +159,17 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
     render: (step) => (
       <span className="text-zinc-300">
         {step.materials.map((material, index) => (
-          <span key={material.itemId}>
+          <span key={index}>
             {index > 0 && ', '}
             <span className="tabular">{formatNumber(material.quantity)}</span> <MaterialName material={material} />
             {material.crafted > 0 && (
               <span className="text-zinc-500"> ({formatNumber(material.crafted)} made earlier)</span>
+            )}
+            {material.via && (
+              <span className="text-zinc-500">
+                {' '}
+                (for {formatNumber(material.via.quantity)} {material.via.name})
+              </span>
             )}
           </span>
         ))}

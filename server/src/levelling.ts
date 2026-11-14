@@ -4,8 +4,10 @@ import { costToBuy, type Book, type BookLevel } from "./favor.js";
 // Works out the cheapest way to level a crafting profession at current prices.
 // For each skill point it picks the recipe with the lowest expected cost, then
 // groups the result into steps ("craft 25 x Elixir of Wisdom, 95 -> 120").
-// Potions made along the way are used as reagents for later steps. Trainer fees
-// and the sale value of what you craft are not counted.
+// Items made along the way are used as reagents for later steps, and a reagent
+// the profession can craft (a grinding stone) is priced from its own inputs
+// when that is cheaper than buying it. Trainer fees and the sale value of what
+// you craft are not counted.
 
 export interface Recipe {
   spellId: number;
@@ -15,6 +17,7 @@ export interface Recipe {
   grey: number; // no skill-ups from here
   makes: { itemId: number; quantity: number };
   reagents: Array<{ itemId: number; quantity: number }>;
+  plan?: boolean; // taught by a bought plan, not a trainer
 }
 
 export interface Profession {
@@ -50,6 +53,7 @@ export interface StepMaterial {
   cost: number;
   vendor: boolean;
   estimated: boolean;
+  via?: { name: string; quantity: number }; // bought to craft this reagent first
 }
 
 export interface LevelStep {
@@ -59,6 +63,7 @@ export interface LevelStep {
   recipeName: string;
   crafts: number; // expected, rounded up
   guaranteed: boolean; // every craft gives a point
+  plan: boolean;
   materials: StepMaterial[];
   cost: number;
 }
@@ -98,11 +103,36 @@ function unitPriceAt(book: Book, position: number): number | null {
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
 
+  const makers = new Map(profession.recipes.map((recipe) => [recipe.makes.itemId, recipe]));
+  const nameOf = (itemId: number) => profession.itemNames[itemId] ?? `Item #${itemId}`;
+
   // Pass 1: choose a recipe for each skill point by expected cost, tracking how
   // much of each item has been used so later points see dearer prices.
   const used = new Map<number, number>();
   const made = new Map<number, number>(); // crafted earlier and not yet used
   const choices: Array<{ skill: number; recipe: Recipe; crafts: number }> = [];
+
+  const nextPrice = (itemId: number) =>
+    vendor[itemId] ?? unitPriceAt(market.get(itemId)?.book ?? [], Math.floor(used.get(itemId) ?? 0));
+  // Cheapest way to get one more of an item: buy it, or craft it from inputs.
+  const cheapest = (itemId: number, skill: number): { price: number; via?: Recipe } | null => {
+    const buy = nextPrice(itemId);
+    const maker = makers.get(itemId);
+    let craft: number | null = null;
+    if (maker && skill >= maker.learn) {
+      craft = 0;
+      for (const input of maker.reagents) {
+        const price = nextPrice(input.itemId);
+        if (price === null) {
+          craft = null;
+          break;
+        }
+        craft += (price * input.quantity) / maker.makes.quantity;
+      }
+    }
+    if (craft !== null && maker && (buy === null || craft <= buy)) return { price: craft, via: maker };
+    return buy === null ? null : { price: buy };
+  };
 
   for (let skill = from; skill < to; skill++) {
     let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
@@ -114,14 +144,12 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       let cost = 0;
       for (const reagent of recipe.reagents) {
         if ((made.get(reagent.itemId) ?? 0) >= reagent.quantity * crafts) continue; // already have them
-        const price =
-          vendor[reagent.itemId] ??
-          unitPriceAt(market.get(reagent.itemId)?.book ?? [], Math.floor(used.get(reagent.itemId) ?? 0));
-        if (price === null) {
+        const source = cheapest(reagent.itemId, skill);
+        if (!source) {
           cost = Infinity;
           break;
         }
-        cost += price * reagent.quantity * crafts;
+        cost += source.price * reagent.quantity * crafts;
       }
       if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
     }
@@ -132,7 +160,15 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       const need = reagent.quantity * best.crafts;
       const fromMade = Math.min(made.get(reagent.itemId) ?? 0, need);
       made.set(reagent.itemId, (made.get(reagent.itemId) ?? 0) - fromMade);
-      used.set(reagent.itemId, (used.get(reagent.itemId) ?? 0) + need - fromMade);
+      const rest = need - fromMade;
+      const via = cheapest(reagent.itemId, skill)?.via;
+      if (via) {
+        for (const input of via.reagents) {
+          used.set(input.itemId, (used.get(input.itemId) ?? 0) + (rest * input.quantity) / via.makes.quantity);
+        }
+      } else {
+        used.set(reagent.itemId, (used.get(reagent.itemId) ?? 0) + rest);
+      }
     }
     const product = best.recipe.makes;
     made.set(product.itemId, (made.get(product.itemId) ?? 0) + product.quantity * best.crafts);
@@ -160,30 +196,66 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     }
     const crafts = Math.ceil(expected - 1e-9);
 
+    // What it costs to buy `quantity` of an item on top of what is already bought.
+    const buyLine = (itemId: number, quantity: number): StepMaterial | null => {
+      const already = bought.get(itemId) ?? 0;
+      const vendorPrice = vendor[itemId];
+      const item = market.get(itemId);
+      const cost = vendorPrice !== undefined ? vendorPrice * quantity : costToBuy(item?.book, quantity, already);
+      if (cost === null) return null;
+      return {
+        itemId,
+        name: nameOf(itemId),
+        quantity,
+        crafted: 0,
+        cost,
+        vendor: vendorPrice !== undefined,
+        estimated: vendorPrice === undefined && already + quantity > (item?.exactUnits ?? 0),
+      };
+    };
+
     const materials: StepMaterial[] = [];
+    const spare: Array<[number, number]> = []; // left over from crafting reagents
     let affordable = true;
     for (const reagent of first.recipe.reagents) {
       const quantity = reagent.quantity * crafts;
       const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
       const toBuy = quantity - crafted;
-      const already = bought.get(reagent.itemId) ?? 0;
-      const vendorPrice = vendor[reagent.itemId];
-      const item = market.get(reagent.itemId);
-      const cost =
-        toBuy === 0 ? 0 : vendorPrice !== undefined ? vendorPrice * toBuy : costToBuy(item?.book, toBuy, already);
-      if (cost === null) {
+      const fromStock: StepMaterial = { ...buyLine(reagent.itemId, 0)!, quantity: crafted, crafted, cost: 0, estimated: false };
+      if (toBuy === 0) {
+        materials.push(fromStock);
+        continue;
+      }
+
+      const direct = buyLine(reagent.itemId, toBuy);
+      const maker = makers.get(reagent.itemId);
+      let inputs: StepMaterial[] | null = null;
+      if (maker && first.skill >= maker.learn) {
+        const batches = Math.ceil(toBuy / maker.makes.quantity);
+        const via = { name: nameOf(reagent.itemId), quantity: toBuy };
+        inputs = [];
+        for (const input of maker.reagents) {
+          const line = buyLine(input.itemId, input.quantity * batches);
+          if (!line) {
+            inputs = null;
+            break;
+          }
+          inputs.push({ ...line, via });
+        }
+        const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
+        if (inputs && direct && direct.cost < inputCost) inputs = null;
+        if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
+      }
+
+      if (inputs) {
+        if (crafted > 0) materials.push(fromStock);
+        materials.push(...inputs);
+      } else if (direct) {
+        materials.push({ ...direct, quantity, crafted });
+      } else {
         affordable = false;
         break;
       }
-      materials.push({
-        itemId: reagent.itemId,
-        name: profession.itemNames[reagent.itemId] ?? `Item #${reagent.itemId}`,
-        quantity,
-        crafted,
-        cost,
-        vendor: vendorPrice !== undefined,
-        estimated: vendorPrice === undefined && toBuy > 0 && already + toBuy > (item?.exactUnits ?? 0),
-      });
     }
     if (!affordable) break; // rounding up needed more than the market holds
 
@@ -192,7 +264,9 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       bought.set(material.itemId, (bought.get(material.itemId) ?? 0) + material.quantity - material.crafted);
     }
     const product = first.recipe.makes;
-    stock.set(product.itemId, (stock.get(product.itemId) ?? 0) + product.quantity * crafts);
+    for (const [itemId, quantity] of [...spare, [product.itemId, product.quantity * crafts] as const]) {
+      stock.set(itemId, (stock.get(itemId) ?? 0) + quantity);
+    }
     const last = choices[end - 1]!;
     steps.push({
       from: first.skill,
@@ -201,6 +275,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       recipeName: first.recipe.name,
       crafts,
       guaranteed: last.skill < first.recipe.yellow,
+      plan: first.recipe.plan ?? false,
       materials,
       cost: materials.reduce((sum, m) => sum + m.cost, 0),
     });
@@ -232,7 +307,8 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       line.cost += material.cost;
       line.estimated ||= material.estimated;
     } else {
-      shopping.set(material.itemId, { ...material, quantity: toBuy, crafted: 0 });
+      const { via: _via, ...line } = material;
+      shopping.set(material.itemId, { ...line, quantity: toBuy, crafted: 0 });
     }
   }
 

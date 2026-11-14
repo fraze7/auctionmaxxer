@@ -5,6 +5,7 @@ import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, type Profession } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
+import { BLACKSMITHING } from "./professions/blacksmithing.js";
 import { loadSettings } from "./settings.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
@@ -63,12 +64,12 @@ const FavorQuery = z.object({
 
 const ItemParams = z.object({ id: positiveInt });
 
-const PROFESSIONS: Record<string, Profession> = { alchemy: ALCHEMY };
+const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING } satisfies Record<string, Profession>;
 
 const LevellingQuery = z
   .object({
     house: houseParam,
-    profession: z.enum(["alchemy"]).default("alchemy"),
+    profession: z.enum(["alchemy", "blacksmithing"]).default("alchemy"),
     from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
   })
@@ -405,7 +406,7 @@ export function createApp(options: ApiOptions): Express {
   app.get("/api/levelling", (req, res) => {
     const query = parse(LevellingQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
-    const profession = PROFESSIONS[query.profession]!;
+    const profession: Profession = PROFESSIONS[query.profession];
     const { takenAt, market } = loadMarket(db, houseId, profession);
 
     res.json({

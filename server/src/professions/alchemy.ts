@@ -1,28 +1,10 @@
 import type { Profession, Recipe } from "../levelling.js";
+import { r } from "./recipe.js";
 
 // Alchemy recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
 // Only recipes taught by a trainer, plus the two starting recipes. Left out:
 // drops, vendor and quest recipes, transmutes (cooldown) and Mana Well (never
 // gives skill).
-
-// r(spell, name, [orange, yellow, grey], [item, quantity], reagents)
-// Wowhead gives orange 0 for a few recipes; their real learn level is unknown,
-// so they are treated as learnable from yellow.
-const r = (
-  spellId: number,
-  name: string,
-  [orange, yellow, grey]: [number, number, number],
-  [itemId, quantity]: [number, number],
-  reagents: Array<[number, number]>,
-): Recipe => ({
-  spellId,
-  name,
-  learn: orange > 0 ? orange : yellow,
-  yellow,
-  grey,
-  makes: { itemId, quantity },
-  reagents: reagents.map(([id, qty]) => ({ itemId: id, quantity: qty })),
-});
 
 const VIAL = 3371;
 const LEADED = 3372;
