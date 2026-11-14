@@ -418,3 +418,31 @@ export interface VendorResponse {
 export const vendorApi = {
   list: () => get<VendorResponse>('/api/vendor'),
 }
+
+// --- Resets ---
+
+export interface Reset {
+  id: number
+  name: string | null
+  quality: string | null
+  units: number // to buy
+  cost: number
+  floor: number // cheapest price now
+  newFloor: number // cheapest price after the buyout
+  normal: number // 7-day median of the cheapest price
+  remaining: number // units still listed afterwards
+  profit: number
+}
+
+export interface ResetsResponse {
+  house: number
+  takenAt: number | null
+  ahCut: number
+  maxCost: number
+  minRise: number
+  resets: Reset[]
+}
+
+export const resetsApi = {
+  get: (params: { maxCost?: number; minRise?: number }) => get<ResetsResponse>('/api/resets', params),
+}

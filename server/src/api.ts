@@ -12,6 +12,7 @@ import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { TAILORING } from "./professions/tailoring.js";
 import { findMovers } from "./movers.js";
+import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
 import { findVendorDeals } from "./vendor.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
@@ -442,6 +443,28 @@ export function createApp(options: ApiOptions): Express {
     );
     const houseId = query.house ?? defaultHouseId;
     res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, minPrice: query.minPrice, ...findMovers({ db, houseId, ...query }) });
+  });
+
+  // GET /api/resets?maxCost=&minRise=&limit=&house=  - see resets.ts
+  app.get("/api/resets", (req, res) => {
+    const query = parse(
+      z.object({
+        house: houseParam,
+        maxCost: z.coerce.number().int().min(1).max(1_000_000_000).default(500_000),
+        minRise: z.coerce.number().min(1.05).max(100).default(1.5),
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+      }),
+      req.query,
+    );
+    const houseId = query.house ?? defaultHouseId;
+    const { ahCut } = loadSettings(db);
+    res.json({
+      house: houseId,
+      ahCut,
+      maxCost: query.maxCost,
+      minRise: query.minRise,
+      ...findResets({ db, houseId, ahCut, maxCost: query.maxCost, minRise: query.minRise, limit: query.limit }),
+    });
   });
 
   // GET /api/vendor?house=  - see vendor.ts
