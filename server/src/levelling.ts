@@ -180,16 +180,14 @@ export function planLevelling(profession: Profession, market: Market, from: numb
   while (index < choices.length) {
     const first = choices[index]!;
     let end = index;
-    let expected = 0;
     while (
       end < choices.length &&
       choices[end]!.recipe === first.recipe &&
       (end === index || !TIER_BREAKS.includes(choices[end]!.skill))
     ) {
-      expected += choices[end]!.crafts;
       end++;
     }
-    const crafts = Math.ceil(expected - 1e-9);
+    const fullEnd = end;
 
     // What it costs to buy `quantity` of an item on top of what is already bought.
     const buyLine = (itemId: number, quantity: number): StepMaterial | null => {
@@ -209,50 +207,65 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       };
     };
 
-    const materials: StepMaterial[] = [];
-    const spare: Array<[number, number]> = []; // left over from crafting reagents
-    let affordable = true;
-    for (const reagent of first.recipe.reagents) {
-      const quantity = reagent.quantity * crafts;
-      const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
-      const toBuy = quantity - crafted;
-      const fromStock: StepMaterial = { ...buyLine(reagent.itemId, 0)!, quantity: crafted, crafted, cost: 0, estimated: false };
-      if (toBuy === 0) {
-        materials.push(fromStock);
-        continue;
-      }
-
-      const direct = buyLine(reagent.itemId, toBuy);
-      const maker = makers.get(reagent.itemId);
-      let inputs: StepMaterial[] | null = null;
-      if (maker && first.skill >= maker.learn) {
-        const batches = Math.ceil(toBuy / maker.makes.quantity);
-        const via = { name: nameOf(reagent.itemId), quantity: toBuy };
-        inputs = [];
-        for (const input of maker.reagents) {
-          const line = buyLine(input.itemId, input.quantity * batches);
-          if (!line) {
-            inputs = null;
-            break;
-          }
-          inputs.push({ ...line, via });
+    // Rounding crafts up can need more than is listed; if so, cover fewer points.
+    let crafts = 0;
+    let materials: StepMaterial[] = [];
+    let spare: Array<[number, number]> = []; // left over from crafting reagents
+    let affordable = false;
+    for (; end > index && !affordable; end -= affordable ? 0 : 1) {
+      const expected = choices.slice(index, end).reduce((sum, choice) => sum + choice.crafts, 0);
+      crafts = Math.ceil(expected - 1e-9);
+      materials = [];
+      spare = [];
+      affordable = true;
+      for (const reagent of first.recipe.reagents) {
+        const quantity = reagent.quantity * crafts;
+        const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
+        const toBuy = quantity - crafted;
+        const fromStock: StepMaterial = {
+          ...buyLine(reagent.itemId, 0)!,
+          quantity: crafted,
+          crafted,
+          cost: 0,
+          estimated: false,
+        };
+        if (toBuy === 0) {
+          materials.push(fromStock);
+          continue;
         }
-        const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
-        if (inputs && direct && direct.cost < inputCost) inputs = null;
-        if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
-      }
 
-      if (inputs) {
-        if (crafted > 0) materials.push(fromStock);
-        materials.push(...inputs);
-      } else if (direct) {
-        materials.push({ ...direct, quantity, crafted });
-      } else {
-        affordable = false;
-        break;
+        const direct = buyLine(reagent.itemId, toBuy);
+        const maker = makers.get(reagent.itemId);
+        let inputs: StepMaterial[] | null = null;
+        if (maker && first.skill >= maker.learn) {
+          const batches = Math.ceil(toBuy / maker.makes.quantity);
+          const via = { name: nameOf(reagent.itemId), quantity: toBuy };
+          inputs = [];
+          for (const input of maker.reagents) {
+            const line = buyLine(input.itemId, input.quantity * batches);
+            if (!line) {
+              inputs = null;
+              break;
+            }
+            inputs.push({ ...line, via });
+          }
+          const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
+          if (inputs && direct && direct.cost < inputCost) inputs = null;
+          if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
+        }
+
+        if (inputs) {
+          if (crafted > 0) materials.push(fromStock);
+          materials.push(...inputs);
+        } else if (direct) {
+          materials.push({ ...direct, quantity, crafted });
+        } else {
+          affordable = false;
+          break;
+        }
       }
     }
-    if (!affordable) break; // rounding up needed more than the market holds
+    if (!affordable) break;
 
     for (const material of materials) {
       stock.set(material.itemId, (stock.get(material.itemId) ?? 0) - material.crafted);
@@ -275,6 +288,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       cost: materials.reduce((sum, m) => sum + m.cost, 0),
     });
     reached = last.skill + 1;
+    if (end < fullEnd) break;
     index = end;
   }
 
@@ -329,13 +343,15 @@ export interface MarketData {
 // Order books for a profession's reagents, from the latest snapshot.
 export function loadMarket(db: Db, houseId: number, profession: Profession): MarketData {
   const snapshot = db
-    .prepare<[number], { id: number; takenAt: number }>(`
+    .prepare<[number], { id: number; takenAt: number }>(
+      `
       SELECT id, taken_at AS takenAt
       FROM snapshots
       WHERE house_id = ? AND kind = 'commodities' AND status = 'ok'
       ORDER BY taken_at DESC
       LIMIT 1
-    `)
+    `,
+    )
     .get(houseId);
   if (!snapshot) return { takenAt: null, market: new Map() };
 
@@ -345,12 +361,14 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
 
   const books = new Map<number, BookLevel[]>();
   const levels = db
-    .prepare<[number], { itemId: number; unitPrice: number; quantity: number }>(`
+    .prepare<[number], { itemId: number; unitPrice: number; quantity: number }>(
+      `
       SELECT item_id AS itemId, unit_price AS unitPrice, quantity
       FROM price_levels
       WHERE snapshot_id = ? AND item_id IN (${idList})
       ORDER BY item_id, level
-    `)
+    `,
+    )
     .all(snapshot.id);
   for (const { itemId, unitPrice, quantity } of levels) {
     let book = books.get(itemId);
@@ -359,11 +377,13 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
   }
 
   const totals = db
-    .prepare<[number], { itemId: number; quantity: number; medianPrice: number }>(`
+    .prepare<[number], { itemId: number; quantity: number; medianPrice: number }>(
+      `
       SELECT item_id AS itemId, quantity, median_price AS medianPrice
       FROM commodity_prices
       WHERE snapshot_id = ? AND item_id IN (${idList})
-    `)
+    `,
+    )
     .all(snapshot.id);
 
   const market = new Map<number, MarketItem>();
@@ -373,7 +393,10 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
     // Units listed beyond the stored levels: assume the dearer of the last
     // stored price and the median.
     if (quantity > exactUnits) {
-      book.push({ unitPrice: Math.max(book.at(-1)?.unitPrice ?? 0, medianPrice), quantity: quantity - exactUnits });
+      book.push({
+        unitPrice: Math.max(book.at(-1)?.unitPrice ?? 0, medianPrice),
+        quantity: quantity - exactUnits,
+      });
     }
     market.set(itemId, { book, exactUnits });
   }

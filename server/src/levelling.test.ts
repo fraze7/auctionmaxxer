@@ -175,6 +175,13 @@ describe("planLevelling", () => {
     );
   });
 
+  it("covers fewer points when rounding crafts up needs more than is listed", () => {
+    // 15 -> 17 expects 1/0.5 + 1/0.4 = 4.5 crafts, which rounds up to 5; only 4.5 are listed.
+    const half: Market = new Map([[1, { book: [{ unitPrice: 10, quantity: 4.5 }], exactUnits: 4.5 }]]);
+    const plan = planLevelling(TEST, half, 15, 17);
+    assert.deepEqual([plan.reached, plan.steps[0]?.crafts], [16, 2]);
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 
