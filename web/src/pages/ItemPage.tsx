@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { itemApi, type HistoryPoint, type ItemDetail, type PriceLevel, type Trend } from '../api.ts'
 import { HistoryChart, SERIES_COLOR } from '../components/HistoryChart.tsx'
 import { ItemName } from '../components/ItemName.tsx'
@@ -44,9 +44,7 @@ export function ItemPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/items" className="text-xs text-zinc-500 hover:text-zinc-300">
-          ← All items
-        </Link>
+        <BackLink />
         <h1 className="mt-1 text-xl font-semibold">
           <ItemName id={item.id} name={item.name} quality={item.quality} link={false} />
         </h1>
@@ -340,4 +338,25 @@ function SmallTable({ headers, children }: { headers: string[]; children: ReactN
 
 function Cell({ align = 'right', children }: { align?: 'left' | 'right'; children: ReactNode }) {
   return <td className={`tabular py-1 ${align === 'left' ? 'text-left text-zinc-400' : 'text-right'}`}>{children}</td>
+}
+
+// Back to the tab you came from, filters and all. Opened directly (a bookmark
+// or a Discord alert), there is nowhere to go back to, so it links to Items.
+function BackLink() {
+  const navigate = useNavigate()
+  const className = 'text-xs text-zinc-500 hover:text-zinc-300'
+  // React Router numbers its history entries; above 0 means an earlier page of this site.
+  const cameFromSite = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0
+  if (!cameFromSite) {
+    return (
+      <Link to="/items" className={className}>
+        ← All items
+      </Link>
+    )
+  }
+  return (
+    <button type="button" onClick={() => navigate(-1)} className={className}>
+      ← Back
+    </button>
+  )
 }
