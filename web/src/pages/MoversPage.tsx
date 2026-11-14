@@ -16,16 +16,20 @@ const RANGES = [
   { hours: 168, label: '7 days' },
 ]
 const DEFAULT_MIN_QUANTITY = 50
+const DEFAULT_MIN_SILVER = 10
 
 export function MoversPage() {
   const [hoursText, setHoursText] = useUrlParam('hours', '24')
   const hours = RANGES.some((range) => String(range.hours) === hoursText) ? Number(hoursText) : 24
   const [minText, setMinText] = useUrlParam('min')
   const minQuantity = toWholeNumber(minText) || DEFAULT_MIN_QUANTITY
+  // In silver; an empty box means the default, 0 means no limit.
+  const [worthText, setWorthText] = useUrlParam('worth')
+  const minPrice = (toWholeNumber(worthText) ?? DEFAULT_MIN_SILVER) * 100
 
   const movers = useQuery({
-    queryKey: ['movers', hours, minQuantity],
-    queryFn: () => moversApi.get({ hours, minQuantity }),
+    queryKey: ['movers', hours, minQuantity, minPrice],
+    queryFn: () => moversApi.get({ hours, minQuantity, minPrice }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
@@ -39,6 +43,17 @@ export function MoversPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
+          <label className="block text-xs text-zinc-400">
+            Worth at least (silver)
+            <input
+              type="text"
+              inputMode="numeric"
+              value={worthText}
+              placeholder={String(DEFAULT_MIN_SILVER)}
+              onChange={(event) => setWorthText(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="tabular mt-1 block w-24 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+            />
+          </label>
           <label className="block text-xs text-zinc-400">
             At least on sale
             <input
@@ -86,7 +101,8 @@ export function MoversPage() {
           <p className="text-xs text-zinc-500">
             Compared with prices from {formatDateTime(movers.data.comparedTo)}. The change is in the median price, the
             middle of everything listed, and only counts when the cheapest listing moved the same way. Items with
-            fewer than {formatNumber(movers.data.minQuantity)} on sale, or only a handful of listings, are left out.
+            fewer than {formatNumber(movers.data.minQuantity)} on sale, or only a handful of listings, are left out, as are items that
+            were never worth the minimum price.
           </p>
         </>
       )}

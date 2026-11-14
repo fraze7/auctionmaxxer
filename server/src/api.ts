@@ -427,19 +427,20 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/movers?hours=&minQuantity=&limit=&house=  - see movers.ts
+  // GET /api/movers?hours=&minQuantity=&minPrice=&limit=&house=  - see movers.ts
   app.get("/api/movers", (req, res) => {
     const query = parse(
       z.object({
         house: houseParam,
         hours: z.coerce.number().int().min(1).max(720).default(24),
         minQuantity: z.coerce.number().int().min(1).max(1_000_000).default(50),
+        minPrice: z.coerce.number().int().min(0).max(100_000_000).default(1000),
         limit: z.coerce.number().int().min(1).max(100).default(25),
       }),
       req.query,
     );
     const houseId = query.house ?? defaultHouseId;
-    res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, ...findMovers({ db, houseId, ...query }) });
+    res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, minPrice: query.minPrice, ...findMovers({ db, houseId, ...query }) });
   });
 
   // GET /api/crafts?house=  - see crafts.ts

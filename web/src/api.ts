@@ -382,6 +382,7 @@ export interface MoversResponse {
   house: number
   hours: number
   minQuantity: number
+  minPrice: number
   takenAt: number | null
   comparedTo: number | null // null = no earlier snapshot to compare with
   risers: Mover[]
@@ -389,5 +390,6 @@ export interface MoversResponse {
 }
 
 export const moversApi = {
-  get: (params: { hours?: number; minQuantity?: number }) => get<MoversResponse>('/api/movers', params),
+  get: (params: { hours?: number; minQuantity?: number; minPrice?: number }) =>
+    get<MoversResponse>('/api/movers', params),
 }

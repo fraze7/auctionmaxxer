@@ -33,8 +33,8 @@ async function dbWith(snapshots: Array<[number, Array<[number, number, number]>]
   return db;
 }
 
-const find = (db: Awaited<ReturnType<typeof dbWith>>, hours = 24, minQuantity = 50) =>
-  findMovers({ db, houseId: 113, hours, minQuantity, limit: 25 });
+const find = (db: Awaited<ReturnType<typeof dbWith>>, hours = 24, minQuantity = 50, minPrice = 0) =>
+  findMovers({ db, houseId: 113, hours, minQuantity, minPrice, limit: 25 });
 
 describe("findMovers", () => {
   it("lists the biggest risers and fallers against the snapshot a day earlier", async () => {
@@ -89,6 +89,16 @@ describe("findMovers", () => {
     await snapshot(124 * HOUR, [[10, 20], [10, 20], [10, 20], [10, 20], [50_000, 500]]);
 
     assert.deepEqual(find(db).risers, []);
+  });
+
+  it("leaves out items worth less than the minimum price both then and now", async () => {
+    const db = await dbWith([
+      [100 * HOUR, [[1, 2, 100], [2, 400, 100], [3, 20, 100]]],
+      [124 * HOUR, [[1, 90, 100], [2, 30, 100], [3, 500, 100]]],
+    ]);
+    const movers = find(db, 24, 50, 300);
+    // 1 never reaches 300c. 2 was worth it before it fell; 3 is worth it now.
+    assert.deepEqual([movers.risers.map((m) => m.id), movers.fallers.map((m) => m.id)], [[3], [2]]);
   });
 
   it("falls back to the oldest snapshot when there is not enough history", async () => {

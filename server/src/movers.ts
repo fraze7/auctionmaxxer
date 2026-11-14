@@ -33,10 +33,11 @@ interface Options {
   houseId: number;
   hours: number;
   minQuantity: number;
+  minPrice: number; // copper; the higher of the two medians must reach this
   limit: number;
 }
 
-export function findMovers({ db, houseId, hours, minQuantity, limit }: Options): Movers {
+export function findMovers({ db, houseId, hours, minQuantity, minPrice, limit }: Options): Movers {
   const snapshotAt = (where: string, order: string) =>
     db.prepare<[number, number], { id: number; takenAt: number }>(`
       SELECT id, taken_at AS takenAt
@@ -58,7 +59,7 @@ export function findMovers({ db, houseId, hours, minQuantity, limit }: Options):
   }
 
   const movers = db
-    .prepare<[number, number, number], Mover>(`
+    .prepare<[number, number, number, number], Mover>(`
       SELECT n.item_id AS id, i.name, i.quality,
              b.median_price AS before, n.median_price AS now,
              n.min_price AS minPrice, n.quantity,
@@ -67,6 +68,7 @@ export function findMovers({ db, houseId, hours, minQuantity, limit }: Options):
       JOIN commodity_prices b ON b.item_id = n.item_id AND b.snapshot_id = ?
       LEFT JOIN items i ON i.item_id = n.item_id
       WHERE n.snapshot_id = ? AND n.quantity >= ? AND b.quantity >= n.quantity / 10
+        AND MAX(n.median_price, b.median_price) >= ?
         AND n.listing_count >= ${MIN_LISTINGS} AND b.listing_count >= ${MIN_LISTINGS}
         AND (
           (n.median_price > b.median_price AND n.min_price >= b.min_price * ${MIN_SHIFT})
@@ -74,7 +76,7 @@ export function findMovers({ db, houseId, hours, minQuantity, limit }: Options):
         )
       ORDER BY change DESC
     `)
-    .all(earlier.id, latest.id, minQuantity);
+    .all(earlier.id, latest.id, minQuantity, minPrice);
 
   return {
     takenAt: latest.takenAt,
