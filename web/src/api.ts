@@ -393,3 +393,28 @@ export const moversApi = {
   get: (params: { hours?: number; minQuantity?: number; minPrice?: number }) =>
     get<MoversResponse>('/api/movers', params),
 }
+
+// --- Vendor ---
+
+export interface VendorDeal {
+  id: number
+  name: string | null
+  quality: string | null
+  vendorPrice: number
+  minPrice: number
+  quantity: number // units listed below the vendor price
+  cost: number
+  profit: number
+}
+
+export interface VendorResponse {
+  house: number
+  takenAt: number | null
+  priced: number
+  unpriced: number // items still waiting for a vendor price
+  deals: VendorDeal[]
+}
+
+export const vendorApi = {
+  list: () => get<VendorResponse>('/api/vendor'),
+}

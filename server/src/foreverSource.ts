@@ -120,6 +120,7 @@ export class ForeverSource implements DataSource {
       id: item.id,
       name: item.name.en_GB,
       ...(item.quality ? { quality: item.quality.type } : {}),
+      ...(item.sell_price !== undefined ? { sellPrice: item.sell_price } : {}),
     };
   }
 

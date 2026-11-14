@@ -13,6 +13,7 @@ import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { TAILORING } from "./professions/tailoring.js";
 import { findMovers } from "./movers.js";
 import { loadSettings } from "./settings.js";
+import { findVendorDeals } from "./vendor.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
 // The HTTP API the web app reads from. It only reads our own database.
@@ -441,6 +442,13 @@ export function createApp(options: ApiOptions): Express {
     );
     const houseId = query.house ?? defaultHouseId;
     res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, minPrice: query.minPrice, ...findMovers({ db, houseId, ...query }) });
+  });
+
+  // GET /api/vendor?house=  - see vendor.ts
+  app.get("/api/vendor", (req, res) => {
+    const query = parse(z.object({ house: houseParam }), req.query);
+    const houseId = query.house ?? defaultHouseId;
+    res.json({ house: houseId, ...findVendorDeals(db, houseId) });
   });
 
   // GET /api/crafts?house=  - see crafts.ts

@@ -3,7 +3,8 @@ import type { Db } from "./db.js";
 
 // Looks up names for 'pending' items, a batch per run to stay well inside
 // Blizzard's rate limits. Items Blizzard doesn't know become 'missing' and
-// are retried after a week.
+// are retried after a week. Named items with no vendor price yet (from before
+// that column existed) are looked up again once.
 
 export const DEFAULT_BATCH_SIZE = 100;
 const RETRY_MISSING_AFTER_SECONDS = 7 * 24 * 60 * 60;
@@ -33,6 +34,7 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
   // Never-tried items first, then stale 'missing' ones.
   const DUE = `
     status = 'pending' OR (status = 'missing' AND fetched_at <= @retryMissingBefore)
+    OR (status = 'ok' AND sell_price IS NULL)
   `;
   const batch = db
     .prepare<{ retryMissingBefore: number; limit: number }, { itemId: number }>(`
@@ -44,11 +46,13 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
     .all({ retryMissingBefore, limit });
 
   const markOk = db.prepare(
-    "UPDATE items SET status = 'ok', name = ?, quality = ?, fetched_at = ? WHERE item_id = ?",
+    "UPDATE items SET status = 'ok', name = ?, quality = ?, sell_price = ?, fetched_at = ? WHERE item_id = ?",
   );
   const markMissing = db.prepare(
     "UPDATE items SET status = 'missing', fetched_at = ? WHERE item_id = ?",
   );
+
+  const keepOk = db.prepare("UPDATE items SET sell_price = 0 WHERE item_id = ? AND status = 'ok'");
 
   let found = 0;
   let missing = 0;
@@ -59,10 +63,12 @@ export async function backfillItems(options: BackfillOptions): Promise<BackfillR
     try {
       const item = await source.getItem(itemId);
       if (item) {
-        markOk.run(item.name, item.quality ?? null, now, itemId);
+        markOk.run(item.name, item.quality ?? null, item.sellPrice ?? 0, now, itemId);
         found++;
       } else {
-        markMissing.run(now, itemId);
+        // A named item that has since vanished keeps its name; just stop asking.
+        const kept = keepOk.run(itemId).changes > 0;
+        if (!kept) markMissing.run(now, itemId);
         missing++;
       }
     } catch (err) {

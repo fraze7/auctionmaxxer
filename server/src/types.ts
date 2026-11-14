@@ -84,6 +84,7 @@ export interface ItemInfo {
   id: number;
   name: string;
   quality?: string; // e.g. "UNCOMMON"; optional until we know Forever sends it
+  sellPrice?: number; // copper a vendor pays for one
 }
 
 // --- Other Blizzard responses ---
@@ -101,6 +102,7 @@ export const ItemResponseSchema = z.object({
   id,
   name: LocalizedNameSchema,
   quality: z.object({ type: z.string() }).optional(),
+  sell_price: z.number().int().nonnegative().optional(),
 });
 
 // POST https://oauth.battle.net/token. expires_in is in seconds.
