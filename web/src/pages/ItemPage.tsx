@@ -24,8 +24,8 @@ const TREND_STYLE: Record<Trend, string> = {
 
 export function ItemPage() {
   const id = Number(useParams().id)
-  const [daysText, setDaysText] = useUrlParam('days', '7')
-  const days = RANGES.some((r) => String(r.days) === daysText) ? Number(daysText) : 7
+  const [daysText, setDaysText] = useUrlParam('days', '1')
+  const days = RANGES.some((r) => String(r.days) === daysText) ? Number(daysText) : 1
 
   const validId = Number.isInteger(id) && id > 0
   const detail = useQuery({ queryKey: ['item', id], queryFn: () => itemApi.detail(id), enabled: validId })
