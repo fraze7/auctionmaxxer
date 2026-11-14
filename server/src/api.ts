@@ -8,7 +8,6 @@ import { ALCHEMY } from "./professions/alchemy.js";
 import { BLACKSMITHING } from "./professions/blacksmithing.js";
 import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
-import { SMELTING } from "./professions/mining.js";
 import { TAILORING } from "./professions/tailoring.js";
 import { loadSettings } from "./settings.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
@@ -68,12 +67,12 @@ const FavorQuery = z.object({
 
 const ItemParams = z.object({ id: positiveInt });
 
-const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING, tailoring: TAILORING, leatherworking: LEATHERWORKING, engineering: ENGINEERING, mining: SMELTING } satisfies Record<string, Profession>;
+const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING, tailoring: TAILORING, leatherworking: LEATHERWORKING, engineering: ENGINEERING } satisfies Record<string, Profession>;
 
 const LevellingQuery = z
   .object({
     house: houseParam,
-    profession: z.enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering", "mining"]).default("alchemy"),
+    profession: z.enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering"]).default("alchemy"),
     from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
     helperSkill: z.coerce.number().int().min(0).max(MAX_SKILL).default(0),

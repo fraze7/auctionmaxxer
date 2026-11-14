@@ -11,7 +11,7 @@ import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
-const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring', 'leatherworking', 'engineering', 'mining']
+const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring', 'leatherworking', 'engineering']
 
 export function LevellingPage() {
   const [chosen, setChosen] = useUrlParam('profession')
@@ -109,9 +109,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         <div className="rounded-lg border border-amber-800 bg-amber-950/60 px-4 py-3 text-sm text-amber-200">
           {plan.tooDear
             ? `The route stops at skill ${plan.reached}: the only recipes the auction house can supply from there cost over ten times more per point.`
-            : plan.profession.id === 'mining'
-              ? `Smelting stops giving skill at ${plan.reached}; the rest comes from mining nodes.`
-              : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
+            : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
           The costs below only cover {plan.from} to {plan.reached}.
         </div>
       )}
@@ -171,28 +169,25 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
   {
     key: 'craft',
     header: 'Craft',
-    render: (step) =>
-      step.spellId === 0 ? (
-        <span className="text-zinc-400">{step.recipeName}</span>
-      ) : (
-        <span className="whitespace-nowrap">
-          <span className="tabular text-zinc-400">
-            {step.guaranteed ? '' : '~'}
-            {formatNumber(step.crafts)} ×
-          </span>{' '}
-          <a
-            href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-zinc-100 hover:underline"
-          >
-            {step.recipeName}
-          </a>
-          {step.plan && (
-            <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
-          )}
-        </span>
-      ),
+    render: (step) => (
+      <span className="whitespace-nowrap">
+        <span className="tabular text-zinc-400">
+          {step.guaranteed ? '' : '~'}
+          {formatNumber(step.crafts)} ×
+        </span>{' '}
+        <a
+          href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-zinc-100 hover:underline"
+        >
+          {step.recipeName}
+        </a>
+        {step.plan && (
+          <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+        )}
+      </span>
+    ),
   },
   {
     key: 'materials',
