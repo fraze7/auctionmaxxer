@@ -200,11 +200,22 @@ describe("planLevelling", () => {
     );
   });
 
+  it("stops when the only recipe left costs far more per point", () => {
+    // Herb A runs out after 11 points. Late could carry on, at 2,000c a herb.
+    const plan = planLevelling(TEST, market({ 1: [[10, 12]], 2: [[2000, 1000]] }), 1, 20);
+    assert.deepEqual([plan.reached, plan.complete, plan.tooDear], [12, false, true]);
+    assert.deepEqual(
+      plan.steps.map((s) => s.recipeName),
+      ["Early"],
+    );
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 
     assert.equal(plan.complete, false);
     assert.equal(plan.reached, 6);
+    assert.equal(plan.tooDear, false);
     assert.equal(plan.steps[0]?.crafts, 5);
   });
 

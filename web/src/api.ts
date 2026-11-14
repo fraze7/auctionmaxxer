@@ -316,6 +316,7 @@ export interface LevellingResponse {
   to: number
   reached: number
   complete: boolean
+  tooDear: boolean // stopped on price, not for lack of materials
   totalCost: number
   brackets: Array<{ from: number; to: number; cost: number; complete: boolean }>
   steps: LevelStep[]

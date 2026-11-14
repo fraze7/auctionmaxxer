@@ -80,6 +80,7 @@ export interface LevelPlan {
   to: number;
   reached: number; // below `to` when the market ran out
   complete: boolean;
+  tooDear: boolean; // stopped because the next point cost too much, not for lack of materials
   totalCost: number;
   brackets: LevelBracket[];
   steps: LevelStep[];
@@ -89,6 +90,9 @@ export interface LevelPlan {
 export const MAX_SKILL = 300;
 // Skill tiers: where the totals are split.
 const TIER_BREAKS = [150, 225];
+// The route stops when a point would cost this many times the dearest so far:
+// that only happens when the sensible recipes cannot be supplied.
+const PRICE_JUMP = 10;
 
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
@@ -100,11 +104,14 @@ export function planLevelling(profession: Profession, market: Market, from: numb
   const stock = new Map<number, number>(); // crafted earlier and not yet used
   const steps: LevelStep[] = [];
   let reached = from;
+  let tooDear = false;
   const banned = new Set<string>(); // "spell@skill" choices the market could not supply
 
   // When pass 2 cannot buy a step in full, plan again from where it got to.
   for (let replan = true; replan;) {
     replan = false;
+    tooDear = false;
+    let dearest = Math.max(0, ...steps.map((step) => step.cost / (step.to - step.from)));
 
     // Pass 1: choose a recipe for each skill point by expected cost, tracking how
     // much of each item has been used so later points see dearer prices.
@@ -160,6 +167,11 @@ export function planLevelling(profession: Profession, market: Market, from: numb
         if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
       }
       if (!best) break; // nothing can be crafted for this point
+      if (dearest > 0 && best.cost > PRICE_JUMP * dearest) {
+        tooDear = true;
+        break;
+      }
+      dearest = Math.max(dearest, best.cost);
 
       choices.push({ skill, recipe: best.recipe, crafts: best.crafts });
       for (const reagent of best.recipe.reagents) {
@@ -340,6 +352,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     to,
     reached,
     complete: reached >= to,
+    tooDear: tooDear && reached < to,
     totalCost: steps.reduce((sum, s) => sum + s.cost, 0),
     brackets,
     steps,
