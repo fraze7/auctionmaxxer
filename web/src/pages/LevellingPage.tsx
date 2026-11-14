@@ -77,7 +77,9 @@ export function LevellingPage() {
               />
             </label>
           )}
-          <span className="text-xs text-zinc-500">Bars are priced from ore when smelting them yourself is cheaper.</span>
+          <span className="text-xs text-zinc-500">
+            Bars are priced from ore when smelting them yourself is cheaper.
+          </span>
         </div>
       )}
 
@@ -131,8 +133,8 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         <h2 className="text-sm font-medium text-zinc-100">Steps</h2>
         <DataTable rows={plan.steps} columns={STEP_COLUMNS} rowKey={(step) => step.from} />
         <p className="text-xs text-zinc-500">
-          Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more
-          or fewer. Trainer fees are not included, and nothing is deducted for selling what you make.
+          Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more or
+          fewer. Trainer fees are not included, and nothing is deducted for selling what you make.
           {plan.steps.some((step) => step.plan) &&
             ' Recipes marked "plan" are learned from plans sold by vendors, not from a trainer; the price of the plan is not included.'}
         </p>
@@ -169,23 +171,28 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
   {
     key: 'craft',
     header: 'Craft',
-    render: (step) => (
-      <span className="whitespace-nowrap">
-        <span className="tabular text-zinc-400">
-          {step.guaranteed ? '' : '~'}
-          {formatNumber(step.crafts)} ×
-        </span>{' '}
-        <a
-          href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-zinc-100 hover:underline"
-        >
-          {step.recipeName}
-        </a>
-        {step.plan && <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>}
-      </span>
-    ),
+    render: (step) =>
+      step.spellId === 0 ? (
+        <span className="text-zinc-400">{step.recipeName}</span>
+      ) : (
+        <span className="whitespace-nowrap">
+          <span className="tabular text-zinc-400">
+            {step.guaranteed ? '' : '~'}
+            {formatNumber(step.crafts)} ×
+          </span>{' '}
+          <a
+            href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-zinc-100 hover:underline"
+          >
+            {step.recipeName}
+          </a>
+          {step.plan && (
+            <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+          )}
+        </span>
+      ),
   },
   {
     key: 'materials',

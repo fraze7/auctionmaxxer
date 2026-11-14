@@ -36,9 +36,9 @@ export const MINING: Helper = {
   },
 };
 
-// Levelling Mining by smelting alone. Only these smelts give skill, and none
-// does between 140 and 155, so the route ends at 140; the rest comes from
-// mining nodes.
+// Levelling Mining by smelting. Only these smelts give skill, and none does
+// between 140 and 155: that stretch is a free placeholder step (spell 0) for
+// mining nodes. Past 185 it is nodes only.
 export const SMELTING: Profession = {
   id: "mining",
   name: "Mining",
@@ -48,6 +48,7 @@ export const SMELTING: Profession = {
     r(2659, "Smelt Bronze", [65, 65, 115], [2841, 2], [[2840, 1], [3576, 1]]),
     r(2658, "Smelt Silver", [75, 100, 125], [2842, 1], [[2775, 1]]),
     r(3307, "Smelt Iron", [125, 130, 140], [3575, 1], [[2772, 1]]),
+    r(0, "Mine ore nodes: no smelt gives skill here", [140, 155, 155], [0, 0], []),
     r(3308, "Smelt Gold", [155, 170, 185], [3577, 1], [[2776, 1]]),
   ],
   vendorPrices: {},
