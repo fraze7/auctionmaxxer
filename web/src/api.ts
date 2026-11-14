@@ -281,3 +281,46 @@ export const watchApi = {
     send<Watch>('POST', '/api/watchlist', rule),
   remove: (id: number) => send<void>('DELETE', `/api/watchlist/${id}`),
 }
+
+// --- Profession levelling ---
+
+export interface LevelMaterial {
+  itemId: number
+  name: string
+  quantity: number
+  crafted: number // of `quantity`, how many an earlier step made
+  cost: number
+  vendor: boolean
+  estimated: boolean // priced partly beyond the stored order book
+}
+
+export interface LevelStep {
+  from: number
+  to: number
+  spellId: number
+  recipeName: string
+  crafts: number
+  guaranteed: boolean
+  materials: LevelMaterial[]
+  cost: number
+}
+
+export interface LevellingResponse {
+  house: number
+  takenAt: number | null
+  profession: { id: string; name: string }
+  professions: Array<{ id: string; name: string }>
+  from: number
+  to: number
+  reached: number
+  complete: boolean
+  totalCost: number
+  brackets: Array<{ from: number; to: number; cost: number; complete: boolean }>
+  steps: LevelStep[]
+  shopping: LevelMaterial[]
+}
+
+export const levellingApi = {
+  get: (params: { profession?: string; from?: number; to?: number }) =>
+    get<LevellingResponse>('/api/levelling', params),
+}

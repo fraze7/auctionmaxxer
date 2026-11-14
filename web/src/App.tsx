@@ -4,6 +4,7 @@ import { DealsPage } from './pages/DealsPage.tsx'
 import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
+import { LevellingPage } from './pages/LevellingPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
 import { useWatchlist } from './watchlist.tsx'
 
@@ -20,6 +21,7 @@ export default function App() {
             <Tab to="/">Deals</Tab>
             <Tab to="/items">Items</Tab>
             <Tab to="/favor">Favor</Tab>
+            <Tab to="/levelling">Levelling</Tab>
             <Tab to="/watchlist" badge={triggered}>
               Watchlist
             </Tab>
@@ -37,6 +39,7 @@ export default function App() {
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/favor" element={<FavorPage />} />
+          <Route path="/levelling" element={<LevellingPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

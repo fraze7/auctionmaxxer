@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
+import { loadMarket, MAX_SKILL, planLevelling, type Profession } from "./levelling.js";
+import { ALCHEMY } from "./professions/alchemy.js";
 import { loadSettings } from "./settings.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
@@ -60,6 +62,17 @@ const FavorQuery = z.object({
 });
 
 const ItemParams = z.object({ id: positiveInt });
+
+const PROFESSIONS: Record<string, Profession> = { alchemy: ALCHEMY };
+
+const LevellingQuery = z
+  .object({
+    house: houseParam,
+    profession: z.enum(["alchemy"]).default("alchemy"),
+    from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
+    to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
+  })
+  .refine((query) => query.from < query.to, { path: ["to"], message: "must be above from" });
 
 const WatchlistQuery = z.object({ house: houseParam });
 
@@ -385,6 +398,22 @@ export function createApp(options: ApiOptions): Express {
       takenAt: data.takenAt,
       crates,
       plan: planFavor(data.crates, data.books, query.target),
+    });
+  });
+
+  // GET /api/levelling?profession=&from=&to=&house=  - see levelling.ts
+  app.get("/api/levelling", (req, res) => {
+    const query = parse(LevellingQuery, req.query);
+    const houseId = query.house ?? defaultHouseId;
+    const profession = PROFESSIONS[query.profession]!;
+    const { takenAt, market } = loadMarket(db, houseId, profession);
+
+    res.json({
+      house: houseId,
+      takenAt,
+      profession: { id: profession.id, name: profession.name },
+      professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
+      ...planLevelling(profession, market, query.from, query.to),
     });
   });
 
