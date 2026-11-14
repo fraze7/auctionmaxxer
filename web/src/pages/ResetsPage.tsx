@@ -95,12 +95,22 @@ export function ResetsPage() {
             Profit assumes every unit you buy sells just under the new price, after the auction house keeps{' '}
             {Math.round(resets.data.ahCut * 100)}%. That is the risk: others can undercut you or list more, and the site
             cannot see how fast an item sells. The new price is never more than one and a half times the normal price
-            (the 7-day median of the cheapest listing), and items with under 12 hours of history are left out.
+            (the 7-day median of the cheapest listing), and items with under 12 hours of history are left out. &ldquo;Sells / day&rdquo; is an estimate from cheap
+            listings disappearing between hourly snapshots: it misses quick sales and counts cancelled listings and
+            other people&rsquo;s buyouts as sales.
           </p>
         </>
       )}
     </div>
   )
+}
+
+// How long the units you buy would take to sell at the estimated rate.
+function daysToSell(units: number, soldPerDay: number): string {
+  if (soldPerDay <= 0) return 'none seen selling'
+  const days = units / soldPerDay
+  if (days < 1) return 'under a day of stock'
+  return `${formatNumber(Math.round(days))} ${Math.round(days) === 1 ? 'day' : 'days'} of stock`
 }
 
 const COLUMNS: Column<Reset>[] = [
@@ -151,6 +161,21 @@ const COLUMNS: Column<Reset>[] = [
     align: 'right',
     render: (reset) => formatNumber(reset.remaining),
     sortValue: (reset) => reset.remaining,
+  },
+  {
+    key: 'soldPerDay',
+    header: 'Sells / day',
+    align: 'right',
+    render: (reset) =>
+      reset.soldPerDay === null ? (
+        '–'
+      ) : (
+        <span className="whitespace-nowrap">
+          ~{formatNumber(Math.round(reset.soldPerDay))}
+          <span className="block text-xs text-zinc-500">{daysToSell(reset.units, reset.soldPerDay)}</span>
+        </span>
+      ),
+    sortValue: (reset) => reset.soldPerDay ?? -1,
   },
   {
     key: 'profit',

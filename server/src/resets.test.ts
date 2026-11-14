@@ -53,6 +53,7 @@ describe("findResets", () => {
         normal: 100,
         remaining: 200,
         profit: 15 * 113 - 650,
+        soldPerDay: 0,
       },
     ]);
   });

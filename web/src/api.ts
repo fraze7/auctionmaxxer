@@ -351,6 +351,7 @@ export interface Craft {
   sale: number // one craft, after the AH cut
   profit: number
   listed: number
+  soldPerDay: number | null // estimate for the product; null = too little history
 }
 
 export interface CraftsResponse {
@@ -432,6 +433,7 @@ export interface Reset {
   normal: number // 7-day median of the cheapest price
   remaining: number // units still listed afterwards
   profit: number
+  soldPerDay: number | null // estimate; null = too little history
 }
 
 export interface ResetsResponse {

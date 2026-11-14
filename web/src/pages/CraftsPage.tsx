@@ -83,7 +83,8 @@ export function CraftsPage() {
             Profit is for one craft, after the auction house keeps {Math.round(crafts.data.ahCut * 100)}% of the sale.
             Prices are the cheapest listings, so making many will cost more and sell for less. Materials marked
             &ldquo;made&rdquo; are cheaper to craft from their own inputs than to buy. Only products sold in stacks are
-            tracked, so crafted gear is not listed.
+            tracked, so crafted gear is not listed. &ldquo;Sells / day&rdquo; is an estimate from cheap listings
+            disappearing between hourly snapshots; treat it as a rough guide.
           </p>
         </>
       )}
@@ -176,6 +177,13 @@ const COLUMNS: Column<Craft>[] = [
     align: 'right',
     render: (craft) => (craft.cost > 0 ? `${Math.round((craft.profit / craft.cost) * 100)}%` : '–'),
     sortValue: (craft) => (craft.cost > 0 ? craft.profit / craft.cost : 0),
+  },
+  {
+    key: 'soldPerDay',
+    header: 'Sells / day',
+    align: 'right',
+    render: (craft) => (craft.soldPerDay === null ? '–' : `~${formatNumber(Math.round(craft.soldPerDay))}`),
+    sortValue: (craft) => craft.soldPerDay ?? -1,
   },
   {
     key: 'listed',

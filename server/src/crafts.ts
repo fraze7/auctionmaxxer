@@ -1,4 +1,5 @@
 import type { Db } from "./db.js";
+import { estimateSales } from "./liquidity.js";
 import type { Profession, Recipe } from "./levelling.js";
 
 // Which recipes make something that sells for more than its materials cost.
@@ -28,6 +29,7 @@ export interface Craft {
   sale: number; // what one craft sells for, after the AH cut
   profit: number;
   listed: number; // units of the product on sale now
+  soldPerDay: number | null; // estimate for the product, see liquidity.ts; null = too little history
 }
 
 export interface CraftData {
@@ -58,6 +60,7 @@ export function findCrafts(db: Db, houseId: number, professions: Profession[], a
     .all(snapshot.id);
   for (const row of rows) prices.set(row.itemId, row);
 
+  const sales = estimateSales(db, houseId);
   const crafts: Craft[] = [];
   for (const profession of professions) {
     const makers = new Map(profession.recipes.map((recipe) => [recipe.makes.itemId, recipe]));
@@ -112,6 +115,7 @@ export function findCrafts(db: Db, houseId: number, professions: Profession[], a
         sale,
         profit: sale - cost,
         listed: product.quantity,
+        soldPerDay: sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(recipe.makes.itemId) ?? 0) : null,
       });
     }
   }

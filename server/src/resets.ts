@@ -1,5 +1,6 @@
 import type { Db } from "./db.js";
 import { median } from "./deals.js";
+import { estimateSales } from "./liquidity.js";
 
 // Reset candidates: items where buying the cheapest listings leaves a much
 // higher cheapest price, so the units bought can be relisted near it.
@@ -24,6 +25,7 @@ export interface Reset {
   normal: number; // 7-day median of the cheapest price
   remaining: number; // units still listed at or above the new price
   profit: number; // if every unit bought resells just under the new price
+  soldPerDay: number | null; // estimate, see liquidity.ts; null = too little history
 }
 
 export interface Resets {
@@ -82,6 +84,7 @@ export function findResets({ db, houseId, ahCut, maxCost, minRise, limit }: Opti
     ORDER BY level
   `);
 
+  const sales = estimateSales(db, houseId);
   const resets: Reset[] = [];
   for (const item of items) {
     const past = history.get(item.id) ?? [];
@@ -115,6 +118,7 @@ export function findResets({ db, houseId, ahCut, maxCost, minRise, limit }: Opti
           normal,
           remaining: item.quantity - units,
           profit,
+          soldPerDay: sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(item.id) ?? 0) : null,
         };
       }
     }
