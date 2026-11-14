@@ -14,6 +14,7 @@ import {
 } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
 import { BLACKSMITHING } from "./professions/blacksmithing.js";
+import { TAILORING } from "./professions/tailoring.js";
 import type { CommodityListing } from "./types.js";
 
 const recipe = (name: string, learn: number, yellow: number, grey: number, reagents: Array<[number, number]>): Recipe => ({
@@ -210,6 +211,23 @@ describe("planLevelling", () => {
     );
   });
 
+  it("groups an alternating maker and user into two steps", () => {
+    // A Bolt is a point, and the Cloak made from it is nearly free, so the
+    // cheapest order alternates. Shown as all the Bolts, then all the Cloaks.
+    const bolt: Recipe = { ...recipe("Bolt", 1, 25, 50, [[1, 2]]), makes: { itemId: 3, quantity: 1 } };
+    const cloak = recipe("Cloak", 1, 35, 60, [[3, 1], [9, 1]]);
+    const cloth: Profession = { ...TEST, recipes: [bolt, cloak], itemNames: { ...TEST.itemNames, 3: "Bolt" } };
+    const plan = planLevelling(cloth, market({ 1: [[10, 1000]] }), 1, 21);
+
+    assert.deepEqual(
+      plan.steps.map((s) => [s.recipeName, s.from, s.to, s.crafts, s.cost]),
+      [
+        ["Bolt", 1, 11, 10, 200],
+        ["Cloak", 11, 21, 10, 50],
+      ],
+    );
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 
@@ -296,7 +314,7 @@ describe("loadMarket", () => {
   });
 });
 
-for (const PROFESSION of [ALCHEMY, BLACKSMITHING]) {
+for (const PROFESSION of [ALCHEMY, BLACKSMITHING, TAILORING]) {
 describe(`the ${PROFESSION.id} recipes`, () => {
   it("offer a skill-up at every level from 1 to 299", () => {
     for (let skill = 1; skill < MAX_SKILL; skill++) {
@@ -348,7 +366,7 @@ describe("GET /api/levelling", () => {
 
       const smithing = await get("?profession=blacksmithing");
       assert.equal(smithing.body.profession.name, "Blacksmithing");
-      assert.equal(smithing.body.professions.length, 2);
+      assert.equal(smithing.body.professions.length, 3);
 
       assert.equal((await get("?from=200&to=150")).status, 400);
       assert.equal((await get("?profession=fishing")).status, 400);

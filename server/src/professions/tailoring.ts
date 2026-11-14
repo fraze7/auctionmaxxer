@@ -1,0 +1,201 @@
+import type { Profession, Recipe } from "../levelling.js";
+import { r } from "./recipe.js";
+
+// Tailoring recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
+// Trainer recipes and the four starting recipes, plus eight patterns sold by
+// vendors: trainer recipes stop giving points at 255. Left out: drops, quest
+// and reputation patterns, holiday clothes, Mooncloth (cooldown), and the
+// Slippers and Faction Banner (never give skill).
+
+const COARSE_THREAD = 2320;
+const FINE_THREAD = 2321;
+const SILKEN_THREAD = 4291;
+const HEAVY_SILKEN_THREAD = 8343;
+const RUNE_THREAD = 14341;
+const BLEACH = 2324;
+const BLACK_DYE = 2325;
+const RED_DYE = 2604;
+const GREEN_DYE = 2605;
+const GRAY_DYE = 4340;
+const BLUE_DYE = 6260;
+const ORANGE_DYE = 6261;
+
+const LINEN = 2996;
+const WOOL = 2997;
+const SILK = 4305;
+const MAGEWEAVE = 4339;
+const RUNECLOTH = 14048;
+
+const RECIPES: Recipe[] = [
+  // Known from skill 1.
+  r(2963, "Bolt of Linen Cloth", [1, 25, 50], [LINEN, 1], [[2589, 2]]),
+  r(2387, "Linen Cloak", [1, 35, 60], [2570, 1], [[LINEN, 1], [COARSE_THREAD, 1]]),
+  r(3915, "Brown Linen Shirt", [1, 35, 60], [4344, 1], [[LINEN, 1], [COARSE_THREAD, 1]]),
+  r(12044, "Simple Linen Pants", [1, 40, 60], [10045, 1], [[LINEN, 1], [COARSE_THREAD, 1]]),
+
+  r(3755, "Linen Bag", [5, 30, 65], [4238, 1], [[LINEN, 3], [COARSE_THREAD, 3]]),
+  r(2393, "White Linen Shirt", [1, 35, 60], [2576, 1], [[LINEN, 1], [COARSE_THREAD, 1], [BLEACH, 1]]),
+  r(2385, "Brown Linen Vest", [10, 45, 70], [2568, 1], [[LINEN, 1], [COARSE_THREAD, 1]]),
+  r(2392, "Red Linen Shirt", [25, 50, 85], [2575, 1], [[LINEN, 2], [COARSE_THREAD, 1], [RED_DYE, 1]]),
+  r(2394, "Blue Linen Shirt", [25, 50, 85], [2577, 1], [[LINEN, 2], [COARSE_THREAD, 1], [BLUE_DYE, 1]]),
+  r(3840, "Heavy Linen Gloves", [25, 50, 85], [4307, 1], [[LINEN, 2], [COARSE_THREAD, 1]]),
+  r(3914, "Brown Linen Pants", [25, 50, 85], [4343, 1], [[LINEN, 2], [COARSE_THREAD, 1]]),
+  r(7623, "Brown Linen Robe", [25, 50, 85], [6238, 1], [[LINEN, 3], [COARSE_THREAD, 1]]),
+  r(7624, "White Linen Robe", [25, 50, 85], [6241, 1], [[LINEN, 3], [COARSE_THREAD, 1], [BLEACH, 1]]),
+  r(8465, "Simple Dress", [25, 50, 85], [6786, 1], [[LINEN, 2], [COARSE_THREAD, 1], [BLUE_DYE, 1], [BLEACH, 1]]),
+  r(8776, "Linen Belt", [15, 50, 85], [7026, 1], [[LINEN, 1], [COARSE_THREAD, 1]]),
+  r(12045, "Simple Linen Boots", [20, 50, 85], [10046, 1], [[LINEN, 2], [2318, 1], [COARSE_THREAD, 1]]),
+  r(1257368, "Novice Arcanist's Sash", [35, 55, 55], [253885, 1], [[LINEN, 8], [FINE_THREAD, 2], [2455, 2]]),
+  r(1257369, "Novice Ardent's Sash", [35, 55, 55], [253887, 1], [[LINEN, 12], [FINE_THREAD, 2], [118, 2]]),
+  r(2397, "Reinforced Linen Cape", [35, 60, 95], [2580, 1], [[LINEN, 2], [COARSE_THREAD, 3]]),
+  r(3841, "Green Linen Bracers", [35, 60, 95], [4308, 1], [[LINEN, 3], [COARSE_THREAD, 2], [GREEN_DYE, 1]]),
+  r(2386, "Linen Boots", [40, 65, 100], [2569, 1], [[LINEN, 3], [COARSE_THREAD, 1], [2318, 1]]),
+  r(2395, "Barbaric Linen Vest", [40, 65, 100], [2578, 1], [[LINEN, 4], [2318, 1], [FINE_THREAD, 1]]),
+  r(2396, "Green Linen Shirt", [40, 65, 100], [2579, 1], [[LINEN, 3], [FINE_THREAD, 1], [GREEN_DYE, 1]]),
+  r(2964, "Bolt of Woolen Cloth", [55, 70, 85], [WOOL, 1], [[2592, 3]]),
+  r(3842, "Handstitched Linen Britches", [45, 70, 105], [4309, 1], [[LINEN, 4], [FINE_THREAD, 2]]),
+  r(3757, "Woolen Bag", [50, 75, 110], [4240, 1], [[WOOL, 3], [FINE_THREAD, 1]]),
+  r(12046, "Simple Kilt", [50, 75, 110], [10047, 1], [[LINEN, 4], [FINE_THREAD, 1]]),
+  r(2402, "Woolen Cape", [55, 80, 115], [2584, 1], [[WOOL, 1], [FINE_THREAD, 1]]),
+  r(3845, "Soft-soled Linen Boots", [55, 80, 115], [4312, 1], [[LINEN, 5], [2318, 2], [FINE_THREAD, 1]]),
+  r(2399, "Green Woolen Vest", [60, 85, 120], [2582, 1], [[WOOL, 2], [FINE_THREAD, 2], [GREEN_DYE, 1]]),
+  r(3843, "Heavy Woolen Gloves", [60, 85, 120], [4310, 1], [[WOOL, 3], [FINE_THREAD, 1]]),
+  r(2406, "Gray Woolen Shirt", [80, 90, 110], [2587, 1], [[WOOL, 2], [FINE_THREAD, 1], [GRAY_DYE, 1]]),
+  r(2401, "Woolen Boots", [70, 95, 130], [2583, 1], [[WOOL, 4], [FINE_THREAD, 2], [2318, 2]]),
+  r(6521, "Pearl-clasped Cloak", [70, 95, 130], [5542, 1], [[WOOL, 3], [FINE_THREAD, 2], [5498, 1]]),
+  r(3839, "Bolt of Silk Cloth", [100, 110, 120], [SILK, 1], [[4306, 4]]),
+  r(3848, "Double-stitched Woolen Shoulders", [85, 110, 145], [4314, 1], [[WOOL, 3], [FINE_THREAD, 2]]),
+  r(3850, "Heavy Woolen Pants", [85, 110, 145], [4316, 1], [[WOOL, 5], [FINE_THREAD, 4]]),
+  r(3866, "Stylish Red Shirt", [85, 110, 145], [4330, 1], [[WOOL, 3], [RED_DYE, 2], [FINE_THREAD, 1]]),
+  r(8467, "White Woolen Dress", [85, 110, 145], [6787, 1], [[WOOL, 3], [BLEACH, 4], [FINE_THREAD, 1]]),
+  r(3852, "Gloves of Meditation", [105, 125, 155], [4318, 1], [[WOOL, 4], [FINE_THREAD, 3], [3383, 1]]),
+  r(3855, "Spidersilk Boots", [100, 125, 160], [4320, 1], [[SILK, 2], [2319, 4], [3182, 4], [5500, 1]]),
+  r(6690, "Lesser Wizard's Robe", [110, 130, 160], [5766, 1], [[SILK, 2], [FINE_THREAD, 2], [3182, 2]]),
+  r(8760, "Azure Silk Hood", [120, 130, 140], [7048, 1], [[SILK, 2], [BLUE_DYE, 2], [FINE_THREAD, 1]]),
+  r(8483, "White Swashbuckler's Shirt", [125, 135, 145], [6795, 1], [[SILK, 3], [BLEACH, 2], [SILKEN_THREAD, 1]]),
+  r(8758, "Azure Silk Pants", [115, 135, 165], [7046, 1], [[SILK, 4], [BLUE_DYE, 2], [FINE_THREAD, 3]]),
+  r(8762, "Silk Headband", [125, 135, 145], [7050, 1], [[SILK, 3], [FINE_THREAD, 2]]),
+  r(3813, "Small Silk Pack", [125, 145, 175], [4245, 1], [[SILK, 3], [4234, 2], [FINE_THREAD, 3]]),
+  r(3859, "Azure Silk Vest", [125, 145, 175], [4324, 1], [[SILK, 5], [BLUE_DYE, 4]]),
+  r(3865, "Bolt of Mageweave", [140, 145, 150], [MAGEWEAVE, 1], [[4338, 5]]),
+  r(3871, "Formal White Shirt", [135, 145, 155], [4334, 1], [[SILK, 3], [BLEACH, 2], [FINE_THREAD, 1]]),
+  r(8489, "Red Swashbuckler's Shirt", [140, 150, 160], [6796, 1], [[SILK, 3], [RED_DYE, 2], [SILKEN_THREAD, 1]]),
+  r(8764, "Earthen Vest", [135, 155, 185], [7051, 1], [[SILK, 3], [7067, 1], [FINE_THREAD, 2]]),
+  r(8766, "Azure Silk Belt", [140, 160, 190], [7052, 1], [[SILK, 4], [7070, 1], [BLUE_DYE, 2], [FINE_THREAD, 2], [7071, 1]]),
+  r(8772, "Crimson Silk Belt", [140, 160, 190], [7055, 1], [[SILK, 4], [7071, 1], [RED_DYE, 2], [SILKEN_THREAD, 1]]),
+  r(8774, "Green Silken Shoulders", [145, 165, 195], [7057, 1], [[SILK, 5], [SILKEN_THREAD, 2]]),
+  r(3861, "Long Silken Cloak", [150, 170, 200], [4326, 1], [[SILK, 4], [3827, 1], [SILKEN_THREAD, 1]]),
+  r(8791, "Crimson Silk Vest", [150, 170, 190], [7058, 1], [[SILK, 4], [RED_DYE, 2], [FINE_THREAD, 2]]),
+  r(8770, "Robe of Power", [155, 175, 205], [7054, 1], [[MAGEWEAVE, 2], [7067, 2], [7070, 2], [7068, 2], [7069, 2], [SILKEN_THREAD, 2]]),
+  r(8799, "Crimson Silk Pantaloons", [160, 180, 200], [7062, 1], [[SILK, 4], [RED_DYE, 2], [SILKEN_THREAD, 2]]),
+  r(12048, "Black Mageweave Vest", [170, 185, 215], [9998, 1], [[MAGEWEAVE, 2], [SILKEN_THREAD, 3]]),
+  r(12049, "Black Mageweave Leggings", [170, 185, 215], [9999, 1], [[MAGEWEAVE, 2], [SILKEN_THREAD, 3]]),
+  r(12061, "Orange Mageweave Shirt", [180, 185, 195], [10056, 1], [[MAGEWEAVE, 1], [ORANGE_DYE, 1], [HEAVY_SILKEN_THREAD, 1]]),
+  r(8804, "Crimson Silk Gloves", [175, 190, 220], [7064, 1], [[SILK, 6], [7068, 2], [6371, 2], [4304, 2], [RED_DYE, 4], [SILKEN_THREAD, 2]]),
+  r(12050, "Black Mageweave Robe", [175, 190, 220], [10001, 1], [[MAGEWEAVE, 3], [HEAVY_SILKEN_THREAD, 1]]),
+  r(12052, "Shadoweave Pants", [175, 190, 220], [10002, 1], [[MAGEWEAVE, 3], [10285, 2], [HEAVY_SILKEN_THREAD, 1]]),
+  r(12053, "Black Mageweave Gloves", [180, 195, 225], [10003, 1], [[MAGEWEAVE, 2], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12055, "Shadoweave Robe", [180, 195, 225], [10004, 1], [[MAGEWEAVE, 3], [10285, 2], [HEAVY_SILKEN_THREAD, 1]]),
+  r(12077, "Simple Black Dress", [195, 200, 210], [10053, 1], [[MAGEWEAVE, 3], [BLACK_DYE, 1], [HEAVY_SILKEN_THREAD, 1], [BLEACH, 1]]),
+  r(12065, "Mageweave Bag", [190, 205, 235], [10050, 1], [[MAGEWEAVE, 4], [SILKEN_THREAD, 2]]),
+  r(12067, "Dreamweave Gloves", [190, 205, 235], [10019, 1], [[MAGEWEAVE, 4], [8153, 4], [10286, 2], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12069, "Cindercloth Robe", [190, 205, 235], [10042, 1], [[MAGEWEAVE, 5], [7077, 2], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12070, "Dreamweave Vest", [190, 205, 235], [10021, 1], [[MAGEWEAVE, 6], [8153, 6], [10286, 2], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12071, "Shadoweave Gloves", [190, 205, 235], [10023, 1], [[MAGEWEAVE, 5], [10285, 5], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12072, "Black Mageweave Headband", [190, 205, 235], [10024, 1], [[MAGEWEAVE, 3], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12073, "Black Mageweave Boots", [190, 205, 235], [10026, 1], [[MAGEWEAVE, 3], [HEAVY_SILKEN_THREAD, 2], [4304, 2]]),
+  r(12074, "Black Mageweave Shoulders", [190, 205, 235], [10027, 1], [[MAGEWEAVE, 3], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12076, "Shadoweave Shoulders", [195, 210, 240], [10028, 1], [[MAGEWEAVE, 5], [10285, 4], [HEAVY_SILKEN_THREAD, 2]]),
+  r(12079, "Red Mageweave Bag", [195, 210, 240], [10051, 1], [[MAGEWEAVE, 5], [RED_DYE, 2], [HEAVY_SILKEN_THREAD, 2]]),
+  r(18401, "Bolt of Runecloth", [205, 210, 215], [RUNECLOTH, 1], [[14047, 5]]),
+  r(12082, "Shadoweave Boots", [200, 215, 245], [10031, 1], [[MAGEWEAVE, 6], [10285, 6], [HEAVY_SILKEN_THREAD, 3], [4304, 2]]),
+  r(12088, "Cindercloth Boots", [200, 215, 245], [10044, 1], [[MAGEWEAVE, 5], [7077, 1], [HEAVY_SILKEN_THREAD, 3], [4304, 2]]),
+  r(12092, "Dreamweave Circlet", [205, 220, 250], [10041, 1], [[MAGEWEAVE, 8], [8153, 4], [10286, 2], [HEAVY_SILKEN_THREAD, 3], [6037, 1], [1529, 1]]),
+  r(18402, "Runecloth Belt", [210, 225, 255], [13856, 1], [[RUNECLOTH, 3], [RUNE_THREAD, 1]]),
+
+  // Vendor patterns.
+  r(18405, "Runecloth Bag", [215, 230, 260], [14046, 1], [[RUNECLOTH, 5], [8170, 2], [RUNE_THREAD, 1], [249430, 4], [249409, 2]], true),
+  r(18406, "Runecloth Robe", [215, 230, 260], [13858, 1], [[RUNECLOTH, 5], [14227, 1], [RUNE_THREAD, 1]], true),
+  r(26085, "Soul Pouch", [215, 230, 260], [21340, 1], [[RUNECLOTH, 6], [8170, 4], [7972, 2], [RUNE_THREAD, 1]], true),
+  r(18409, "Runecloth Cloak", [220, 240, 270], [13860, 1], [[RUNECLOTH, 4], [14227, 1], [RUNE_THREAD, 1]], true),
+  r(18417, "Runecloth Gloves", [230, 245, 275], [13863, 1], [[RUNECLOTH, 4], [8170, 4], [RUNE_THREAD, 1]], true),
+  r(18419, "Felcloth Pants", [230, 245, 275], [14107, 1], [[RUNECLOTH, 5], [14256, 4], [RUNE_THREAD, 1]], true),
+  r(18423, "Runecloth Boots", [235, 250, 280], [13864, 1], [[RUNECLOTH, 4], [14227, 2], [8170, 4], [RUNE_THREAD, 1]], true),
+  r(22902, "Mooncloth Robe", [275, 290, 320], [18486, 1], [[RUNECLOTH, 6], [14342, 4], [13926, 2], [RUNE_THREAD, 2]], true),
+];
+
+export const TAILORING: Profession = {
+  id: "tailoring",
+  name: "Tailoring",
+  recipes: RECIPES,
+  // Sold by trade vendors.
+  vendorPrices: {
+    [COARSE_THREAD]: 10,
+    [FINE_THREAD]: 100,
+    [SILKEN_THREAD]: 500,
+    [HEAVY_SILKEN_THREAD]: 2000,
+    [RUNE_THREAD]: 5000,
+    [BLEACH]: 25,
+    [BLACK_DYE]: 1000,
+    [RED_DYE]: 50,
+    [GREEN_DYE]: 100,
+    [GRAY_DYE]: 350,
+    [BLUE_DYE]: 50,
+    [ORANGE_DYE]: 1000,
+  },
+  itemNames: {
+    118: "Minor Healing Potion",
+    1529: "Jade",
+    2318: "Light Leather",
+    2319: "Medium Leather",
+    [COARSE_THREAD]: "Coarse Thread",
+    [FINE_THREAD]: "Fine Thread",
+    [BLEACH]: "Bleach",
+    [BLACK_DYE]: "Black Dye",
+    2455: "Minor Mana Potion",
+    2589: "Linen Cloth",
+    2592: "Wool Cloth",
+    [RED_DYE]: "Red Dye",
+    [GREEN_DYE]: "Green Dye",
+    [LINEN]: "Bolt of Linen Cloth",
+    [WOOL]: "Bolt of Woolen Cloth",
+    3182: "Spider's Silk",
+    3383: "Elixir of Wisdom",
+    3827: "Mana Potion",
+    4234: "Heavy Leather",
+    [SILKEN_THREAD]: "Silken Thread",
+    4304: "Thick Leather",
+    [SILK]: "Bolt of Silk Cloth",
+    4306: "Silk Cloth",
+    4338: "Mageweave Cloth",
+    [MAGEWEAVE]: "Bolt of Mageweave",
+    [GRAY_DYE]: "Gray Dye",
+    5498: "Small Lustrous Pearl",
+    5500: "Iridescent Pearl",
+    6037: "Truesilver Bar",
+    [BLUE_DYE]: "Blue Dye",
+    [ORANGE_DYE]: "Orange Dye",
+    6371: "Fire Oil",
+    7067: "Elemental Earth",
+    7068: "Elemental Fire",
+    7069: "Elemental Air",
+    7070: "Elemental Water",
+    7071: "Iron Buckle",
+    7077: "Heart of Fire",
+    7972: "Ichor of Undeath",
+    8153: "Wildvine",
+    8170: "Rugged Leather",
+    [HEAVY_SILKEN_THREAD]: "Heavy Silken Thread",
+    10285: "Shadow Silk",
+    10286: "Heart of the Wild",
+    13926: "Golden Pearl",
+    14047: "Runecloth",
+    [RUNECLOTH]: "Bolt of Runecloth",
+    14227: "Ironweb Spider Silk",
+    14256: "Felcloth",
+    [RUNE_THREAD]: "Rune Thread",
+    14342: "Mooncloth",
+    249409: "Cerulean Dye",
+    249430: "Magenta Dye",
+  },
+};

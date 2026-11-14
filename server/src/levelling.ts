@@ -94,6 +94,38 @@ const TIER_BREAKS = [150, 225];
 // that only happens when the sensible recipes cannot be supplied.
 const PRICE_JUMP = 10;
 
+type Choice = { skill: number; recipe: Recipe; crafts: number };
+
+// "Bolt, cloak, bolt, cloak" becomes all the bolts, then all the cloaks. Only
+// done while every craft is still a guaranteed point, so the cost is the same.
+function groupAlternating(choices: Choice[]): void {
+  let i = 0;
+  while (i + 1 < choices.length) {
+    const a = choices[i]!.recipe;
+    const b = choices[i + 1]!.recipe;
+    const uses = (user: Recipe, maker: Recipe) => user.reagents.some((r) => r.itemId === maker.makes.itemId);
+    const [maker, user] = a === b ? [] : uses(b, a) ? [a, b] : uses(a, b) ? [b, a] : [];
+    let j = i;
+    while (j < choices.length && (choices[j]!.recipe === a || choices[j]!.recipe === b) && choices[j]!.crafts === 1)
+      j++;
+    if (!maker || !user || j - i < 4) {
+      i++;
+      continue;
+    }
+    const start = choices[i]!.skill;
+    const made = choices.slice(i, j).filter((choice) => choice.recipe === maker).length;
+    const fits =
+      maker.learn <= start &&
+      start + made <= maker.yellow &&
+      user.learn <= start + made &&
+      start + (j - i) <= user.yellow;
+    if (fits) {
+      for (let k = i; k < j; k++) choices[k] = { skill: start + k - i, recipe: k - i < made ? maker : user, crafts: 1 };
+    }
+    i = j;
+  }
+}
+
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
 
@@ -117,7 +149,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     // much of each item has been used so later points see dearer prices.
     const used = new Map(bought);
     const made = new Map(stock);
-    const choices: Array<{ skill: number; recipe: Recipe; crafts: number }> = [];
+    const choices: Choice[] = [];
 
     const priceOf = (itemId: number, quantity: number) => {
       const vendorPrice = vendor[itemId];
@@ -190,6 +222,8 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       const product = best.recipe.makes;
       made.set(product.itemId, (made.get(product.itemId) ?? 0) + product.quantity * best.crafts);
     }
+
+    groupAlternating(choices);
 
     // Pass 2: group consecutive points on the same recipe into steps (never
     // across a tier break) and price each step exactly, walking the order books.

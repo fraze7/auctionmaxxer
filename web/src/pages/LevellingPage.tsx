@@ -11,7 +11,7 @@ import { useUrlParam } from '../useUrlParam.ts'
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
-const PROFESSION_IDS = ['alchemy', 'blacksmithing']
+const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring']
 
 export function LevellingPage() {
   const [chosen, setChosen] = useUrlParam('profession')
