@@ -16,6 +16,7 @@ import {
 } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
 import { BLACKSMITHING } from "./professions/blacksmithing.js";
+import { ENCHANTING } from "./professions/enchanting.js";
 import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { TAILORING } from "./professions/tailoring.js";
@@ -354,7 +355,7 @@ describe("loadMarket", () => {
   });
 });
 
-for (const PROFESSION of [ALCHEMY, BLACKSMITHING, TAILORING, LEATHERWORKING, ENGINEERING]) {
+for (const PROFESSION of [ALCHEMY, BLACKSMITHING, TAILORING, LEATHERWORKING, ENGINEERING, ENCHANTING]) {
 describe(`the ${PROFESSION.id} recipes`, () => {
   it("offer a skill-up at every level from 1 to 299", () => {
     for (let skill = 1; skill < MAX_SKILL; skill++) {
@@ -406,7 +407,7 @@ describe("GET /api/levelling", () => {
 
       const smithing = await get("?profession=blacksmithing");
       assert.equal(smithing.body.profession.name, "Blacksmithing");
-      assert.equal(smithing.body.professions.length, 5);
+      assert.equal(smithing.body.professions.length, 6);
 
       assert.deepEqual(smithing.body.helper, { id: "mining", name: "Mining", skill: 0 });
       assert.equal((await get("?profession=blacksmithing&helperSkill=300")).body.helper.skill, 300);
