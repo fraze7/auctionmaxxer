@@ -328,3 +328,39 @@ export const levellingApi = {
   get: (params: { profession?: string; from?: number; to?: number; helperSkill?: number }) =>
     get<LevellingResponse>('/api/levelling', params),
 }
+
+// --- Crafts ---
+
+export interface Craft {
+  profession: { id: string; name: string }
+  spellId: number
+  name: string
+  skill: number
+  plan: boolean
+  productId: number
+  productName: string
+  makes: number
+  materials: Array<{
+    itemId: number
+    name: string
+    quantity: number
+    unitCost: number
+    source: 'vendor' | 'auction' | 'crafted'
+  }>
+  cost: number
+  sale: number // one craft, after the AH cut
+  profit: number
+  listed: number
+}
+
+export interface CraftsResponse {
+  house: number
+  takenAt: number | null
+  ahCut: number
+  professions: Array<{ id: string; name: string }>
+  crafts: Craft[]
+}
+
+export const craftsApi = {
+  list: () => get<CraftsResponse>('/api/crafts'),
+}

@@ -1,5 +1,6 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
+import { findCrafts } from "./crafts.js";
 import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
@@ -422,6 +423,19 @@ export function createApp(options: ApiOptions): Express {
       helper: base.helper ? { id: base.helper.id, name: base.helper.name, skill: query.helperSkill } : null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       ...planLevelling(profession, market, query.from, query.to),
+    });
+  });
+
+  // GET /api/crafts?house=  - see crafts.ts
+  app.get("/api/crafts", (req, res) => {
+    const query = parse(z.object({ house: houseParam }), req.query);
+    const houseId = query.house ?? defaultHouseId;
+    const { ahCut } = loadSettings(db);
+    res.json({
+      house: houseId,
+      ahCut,
+      professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
+      ...findCrafts(db, houseId, Object.values(PROFESSIONS), ahCut),
     });
   });
 
