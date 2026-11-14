@@ -120,8 +120,9 @@ const PRICE_JUMP = 10;
 
 type Choice = { skill: number; recipe: Recipe; crafts: number };
 
-// "Bolt, cloak, bolt, cloak" becomes all the bolts, then all the cloaks. Only
-// done while every craft is still a guaranteed point, so the cost is the same.
+// "Bolt, cloak, bolt, cloak" becomes all the bolts, then all the cloaks, with
+// the crafts worked out again for the new order. Skipped if that order would
+// take noticeably more crafts.
 function groupAlternating(choices: Choice[]): void {
   let i = 0;
   while (i + 1 < choices.length) {
@@ -130,22 +131,20 @@ function groupAlternating(choices: Choice[]): void {
     const uses = (user: Recipe, maker: Recipe) => user.reagents.some((r) => r.itemId === maker.makes.itemId);
     const [maker, user] = a === b ? [] : uses(b, a) ? [a, b] : uses(a, b) ? [b, a] : [];
     let j = i;
-    while (j < choices.length && (choices[j]!.recipe === a || choices[j]!.recipe === b) && choices[j]!.crafts === 1)
-      j++;
+    while (j < choices.length && (choices[j]!.recipe === a || choices[j]!.recipe === b)) j++;
     if (!maker || !user || j - i < 4) {
       i++;
       continue;
     }
-    const start = choices[i]!.skill;
-    const made = choices.slice(i, j).filter((choice) => choice.recipe === maker).length;
-    const fits =
-      maker.learn <= start &&
-      start + made <= maker.yellow &&
-      user.learn <= start + made &&
-      start + (j - i) <= user.yellow;
-    if (fits) {
-      for (let k = i; k < j; k++) choices[k] = { skill: start + k - i, recipe: k - i < made ? maker : user, crafts: 1 };
-    }
+    const run = choices.slice(i, j);
+    const start = run[0]!.skill;
+    const made = run.filter((choice) => choice.recipe === maker).length;
+    const regrouped = run.map((_, k): Choice => {
+      const recipe = k < made ? maker : user;
+      return { skill: start + k, recipe, crafts: 1 / skillUpChance(recipe, start + k) };
+    });
+    const total = (list: Choice[]) => list.reduce((sum, choice) => sum + choice.crafts, 0);
+    if (total(regrouped) <= total(run) * 1.1) choices.splice(i, j - i, ...regrouped);
     i = j;
   }
 }
