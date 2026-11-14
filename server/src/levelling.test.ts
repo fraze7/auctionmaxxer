@@ -404,7 +404,7 @@ describe("GET /api/levelling", () => {
 
       const smithing = await get("?profession=blacksmithing");
       assert.equal(smithing.body.profession.name, "Blacksmithing");
-      assert.equal(smithing.body.professions.length, 3);
+      assert.equal(smithing.body.professions.length, 4);
 
       assert.deepEqual(smithing.body.helper, { id: "mining", name: "Mining", skill: 0 });
       assert.equal((await get("?profession=blacksmithing&helperSkill=300")).body.helper.skill, 300);

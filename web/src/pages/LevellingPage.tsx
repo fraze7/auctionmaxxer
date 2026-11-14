@@ -11,7 +11,7 @@ import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
-const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring']
+const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring', 'mining']
 
 export function LevellingPage() {
   const [chosen, setChosen] = useUrlParam('profession')
@@ -107,7 +107,9 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         <div className="rounded-lg border border-amber-800 bg-amber-950/60 px-4 py-3 text-sm text-amber-200">
           {plan.tooDear
             ? `The route stops at skill ${plan.reached}: the only recipes the auction house can supply from there cost over ten times more per point.`
-            : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
+            : plan.profession.id === 'mining'
+              ? `Smelting stops giving skill at ${plan.reached}; the rest comes from mining nodes.`
+              : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
           The costs below only cover {plan.from} to {plan.reached}.
         </div>
       )}

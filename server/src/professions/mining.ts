@@ -1,4 +1,4 @@
-import type { Helper } from "../levelling.js";
+import type { Helper, Profession } from "../levelling.js";
 import { r } from "./recipe.js";
 
 // Smelting recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
@@ -34,4 +34,22 @@ export const MINING: Helper = {
     7911: "Truesilver Ore",
     10620: "Thorium Ore",
   },
+};
+
+// Levelling Mining by smelting alone. Only these smelts give skill, and none
+// does between 140 and 155, so the route ends at 140; the rest comes from
+// mining nodes.
+export const SMELTING: Profession = {
+  id: "mining",
+  name: "Mining",
+  recipes: [
+    r(2657, "Smelt Copper", [1, 25, 70], [2840, 1], [[2770, 1]]),
+    r(3304, "Smelt Tin", [65, 65, 75], [3576, 1], [[2771, 1]]),
+    r(2659, "Smelt Bronze", [65, 65, 115], [2841, 2], [[2840, 1], [3576, 1]]),
+    r(2658, "Smelt Silver", [75, 100, 125], [2842, 1], [[2775, 1]]),
+    r(3307, "Smelt Iron", [125, 130, 140], [3575, 1], [[2772, 1]]),
+    r(3308, "Smelt Gold", [155, 170, 185], [3577, 1], [[2776, 1]]),
+  ],
+  vendorPrices: {},
+  itemNames: { ...MINING.itemNames, 2840: "Copper Bar", 3576: "Tin Bar" },
 };
