@@ -6,6 +6,7 @@ import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
 import { ALCHEMY } from "./professions/alchemy.js";
 import { BLACKSMITHING } from "./professions/blacksmithing.js";
+import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { SMELTING } from "./professions/mining.js";
 import { TAILORING } from "./professions/tailoring.js";
 import { loadSettings } from "./settings.js";
@@ -66,12 +67,12 @@ const FavorQuery = z.object({
 
 const ItemParams = z.object({ id: positiveInt });
 
-const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING, tailoring: TAILORING, mining: SMELTING } satisfies Record<string, Profession>;
+const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING, tailoring: TAILORING, leatherworking: LEATHERWORKING, mining: SMELTING } satisfies Record<string, Profession>;
 
 const LevellingQuery = z
   .object({
     house: houseParam,
-    profession: z.enum(["alchemy", "blacksmithing", "tailoring", "mining"]).default("alchemy"),
+    profession: z.enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "mining"]).default("alchemy"),
     from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
     helperSkill: z.coerce.number().int().min(0).max(MAX_SKILL).default(0),
