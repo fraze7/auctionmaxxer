@@ -11,6 +11,7 @@ import { ENCHANTING } from "./professions/enchanting.js";
 import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { TAILORING } from "./professions/tailoring.js";
+import { findMovers } from "./movers.js";
 import { loadSettings } from "./settings.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
@@ -424,6 +425,21 @@ export function createApp(options: ApiOptions): Express {
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       ...planLevelling(profession, market, query.from, query.to),
     });
+  });
+
+  // GET /api/movers?hours=&minQuantity=&limit=&house=  - see movers.ts
+  app.get("/api/movers", (req, res) => {
+    const query = parse(
+      z.object({
+        house: houseParam,
+        hours: z.coerce.number().int().min(1).max(720).default(24),
+        minQuantity: z.coerce.number().int().min(1).max(1_000_000).default(50),
+        limit: z.coerce.number().int().min(1).max(100).default(25),
+      }),
+      req.query,
+    );
+    const houseId = query.house ?? defaultHouseId;
+    res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, ...findMovers({ db, houseId, ...query }) });
   });
 
   // GET /api/crafts?house=  - see crafts.ts

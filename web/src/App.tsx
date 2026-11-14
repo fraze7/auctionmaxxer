@@ -6,6 +6,7 @@ import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 import { LevellingPage } from './pages/LevellingPage.tsx'
+import { MoversPage } from './pages/MoversPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
 import { useWatchlist } from './watchlist.tsx'
 
@@ -21,6 +22,7 @@ export default function App() {
           <nav className="flex gap-1 text-sm">
             <Tab to="/">Deals</Tab>
             <Tab to="/items">Items</Tab>
+            <Tab to="/movers">Movers</Tab>
             <Tab to="/favor">Favor</Tab>
             <Tab to="/crafts">Crafts</Tab>
             <Tab to="/levelling">Levelling</Tab>
@@ -41,6 +43,7 @@ export default function App() {
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/favor" element={<FavorPage />} />
+          <Route path="/movers" element={<MoversPage />} />
           <Route path="/crafts" element={<CraftsPage />} />
           <Route path="/levelling" element={<LevellingPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />

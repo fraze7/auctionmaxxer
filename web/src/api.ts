@@ -364,3 +364,30 @@ export interface CraftsResponse {
 export const craftsApi = {
   list: () => get<CraftsResponse>('/api/crafts'),
 }
+
+// --- Movers ---
+
+export interface Mover {
+  id: number
+  name: string | null
+  quality: string | null
+  before: number // median then
+  now: number // median now
+  minPrice: number
+  quantity: number
+  change: number // now / before
+}
+
+export interface MoversResponse {
+  house: number
+  hours: number
+  minQuantity: number
+  takenAt: number | null
+  comparedTo: number | null // null = no earlier snapshot to compare with
+  risers: Mover[]
+  fallers: Mover[]
+}
+
+export const moversApi = {
+  get: (params: { hours?: number; minQuantity?: number }) => get<MoversResponse>('/api/movers', params),
+}
