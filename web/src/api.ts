@@ -46,6 +46,7 @@ export interface Deal {
   snapshots: number
   buyQty: number
   totalProfit: number
+  soldPerDay: number | null // estimate; null = too little history
   recentMedian: number
   weekMedian: number
   trendRatio: number

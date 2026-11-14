@@ -1,4 +1,5 @@
 import type { Db } from "./db.js";
+import { estimateSales } from "./liquidity.js";
 import type { Settings } from "./settings.js";
 
 // The trend-aware deals rule, from an item's hourly minimum prices over 7 days:
@@ -76,6 +77,7 @@ export interface Deal extends ItemEvaluation {
   snapshots: number; // price points this verdict is based on
   buyQty: number; // qtyAtMin, capped at maxQty
   totalProfit: number; // profitPerUnit x buyQty - what the list is ranked by
+  soldPerDay: number | null; // estimate, see liquidity.ts; null = too little history
 }
 
 export interface FindDealsOptions {
@@ -159,6 +161,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     `)
     .all(latest.id);
 
+  const sales = estimateSales(db, houseId);
   const deals: Deal[] = [];
   let itemsJudged = 0;
   for (const row of current) {
@@ -184,6 +187,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
       snapshots: past.week.length,
       buyQty,
       totalProfit: evaluation.profitPerUnit * buyQty,
+      soldPerDay: sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(row.item_id) ?? 0) : null,
       ...evaluation,
     });
   }

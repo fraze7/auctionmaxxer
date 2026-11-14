@@ -75,6 +75,14 @@ const columns: Column<Deal>[] = [
     sortValue: (d) => d.qtyAtMin,
   },
   {
+    key: 'soldPerDay',
+    header: 'Sells / day',
+    title: 'Estimate from cheap listings disappearing between hourly snapshots; a rough guide',
+    align: 'right',
+    render: (d) => (d.soldPerDay === null ? '–' : `~${formatNumber(Math.round(d.soldPerDay))}`),
+    sortValue: (d) => d.soldPerDay ?? -1,
+  },
+  {
     key: 'total',
     header: 'Total profit',
     title: 'Profit per unit x the units you would buy',
