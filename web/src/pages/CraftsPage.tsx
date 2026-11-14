@@ -98,14 +98,9 @@ const COLUMNS: Column<Craft>[] = [
     header: 'Craft',
     render: (craft) => (
       <span className="whitespace-nowrap">
-        <a
-          href={`https://www.wowhead.com/forever/spell=${craft.spellId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-zinc-100 hover:underline"
-        >
+        <Link to={`/item/${craft.productId}`} className="text-zinc-100 hover:underline">
           {craft.name}
-        </a>
+        </Link>
         {craft.makes > 1 && <span className="tabular text-zinc-500"> ×{formatNumber(craft.makes)}</span>}
         {craft.plan && (
           <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
