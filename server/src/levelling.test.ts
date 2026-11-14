@@ -182,6 +182,24 @@ describe("planLevelling", () => {
     assert.deepEqual([plan.reached, plan.steps[0]?.crafts], [16, 2]);
   });
 
+  it("carries on with another recipe when a step is cut short", () => {
+    // Early is cheapest from 15 but only 4.5 Herb A are listed: enough for one
+    // point after rounding. Late takes over from 16.
+    const books: Market = new Map([
+      [1, { book: [{ unitPrice: 1, quantity: 4.5 }], exactUnits: 4.5 }],
+      [2, { book: [{ unitPrice: 10, quantity: 1000 }], exactUnits: 1000 }],
+    ]);
+    const plan = planLevelling(TEST, books, 15, 20);
+    assert.equal(plan.complete, true);
+    assert.deepEqual(
+      plan.steps.map((s) => [s.recipeName, s.from, s.to]),
+      [
+        ["Early", 15, 16],
+        ["Late", 16, 20],
+      ],
+    );
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 

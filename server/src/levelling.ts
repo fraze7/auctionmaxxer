@@ -96,200 +96,214 @@ export function planLevelling(profession: Profession, market: Market, from: numb
   const makers = new Map(profession.recipes.map((recipe) => [recipe.makes.itemId, recipe]));
   const nameOf = (itemId: number) => profession.itemNames[itemId] ?? `Item #${itemId}`;
 
-  // Pass 1: choose a recipe for each skill point by expected cost, tracking how
-  // much of each item has been used so later points see dearer prices.
-  const used = new Map<number, number>();
-  const made = new Map<number, number>(); // crafted earlier and not yet used
-  const choices: Array<{ skill: number; recipe: Recipe; crafts: number }> = [];
-
-  const priceOf = (itemId: number, quantity: number) => {
-    const vendorPrice = vendor[itemId];
-    if (vendorPrice !== undefined) return vendorPrice * quantity;
-    return costToBuy(market.get(itemId)?.book, quantity, used.get(itemId) ?? 0);
-  };
-  // Cheapest way to get `quantity` more of an item: buy it, or craft it from inputs.
-  const cheapest = (itemId: number, quantity: number, skill: number): { cost: number; via?: Recipe } | null => {
-    const buy = priceOf(itemId, quantity);
-    const maker = makers.get(itemId);
-    let craft: number | null = null;
-    if (maker && skill >= maker.learn) {
-      craft = 0;
-      for (const input of maker.reagents) {
-        const cost = priceOf(input.itemId, (quantity * input.quantity) / maker.makes.quantity);
-        if (cost === null) {
-          craft = null;
-          break;
-        }
-        craft += cost;
-      }
-    }
-    if (craft !== null && maker && (buy === null || craft <= buy)) return { cost: craft, via: maker };
-    return buy === null ? null : { cost: buy };
-  };
-  const stillNeeded = (reagent: { itemId: number; quantity: number }, crafts: number) =>
-    Math.max(0, reagent.quantity * crafts - (made.get(reagent.itemId) ?? 0));
-
-  for (let skill = from; skill < to; skill++) {
-    let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
-    for (const recipe of profession.recipes) {
-      const chance = skillUpChance(recipe, skill);
-      if (chance === 0) continue;
-      const crafts = 1 / chance;
-
-      let cost = 0;
-      for (const reagent of recipe.reagents) {
-        const rest = stillNeeded(reagent, crafts);
-        if (rest === 0) continue;
-        const source = cheapest(reagent.itemId, rest, skill);
-        if (!source) {
-          cost = Infinity;
-          break;
-        }
-        cost += source.cost;
-      }
-      if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
-    }
-    if (!best) break; // nothing can be crafted for this point
-
-    choices.push({ skill, recipe: best.recipe, crafts: best.crafts });
-    for (const reagent of best.recipe.reagents) {
-      const need = reagent.quantity * best.crafts;
-      const rest = stillNeeded(reagent, best.crafts);
-      const via = rest > 0 ? cheapest(reagent.itemId, rest, skill)?.via : undefined;
-      made.set(reagent.itemId, (made.get(reagent.itemId) ?? 0) - (need - rest));
-      if (via) {
-        for (const input of via.reagents) {
-          used.set(input.itemId, (used.get(input.itemId) ?? 0) + (rest * input.quantity) / via.makes.quantity);
-        }
-      } else {
-        used.set(reagent.itemId, (used.get(reagent.itemId) ?? 0) + rest);
-      }
-    }
-    const product = best.recipe.makes;
-    made.set(product.itemId, (made.get(product.itemId) ?? 0) + product.quantity * best.crafts);
-  }
-
-  // Pass 2: group consecutive points on the same recipe into steps (never
-  // across a tier break) and price each step exactly, walking the order books.
   const bought = new Map<number, number>();
-  const stock = new Map<number, number>();
+  const stock = new Map<number, number>(); // crafted earlier and not yet used
   const steps: LevelStep[] = [];
-  let index = 0;
   let reached = from;
+  const banned = new Set<string>(); // "spell@skill" choices the market could not supply
 
-  while (index < choices.length) {
-    const first = choices[index]!;
-    let end = index;
-    while (
-      end < choices.length &&
-      choices[end]!.recipe === first.recipe &&
-      (end === index || !TIER_BREAKS.includes(choices[end]!.skill))
-    ) {
-      end++;
-    }
-    const fullEnd = end;
+  // When pass 2 cannot buy a step in full, plan again from where it got to.
+  for (let replan = true; replan;) {
+    replan = false;
 
-    // What it costs to buy `quantity` of an item on top of what is already bought.
-    const buyLine = (itemId: number, quantity: number): StepMaterial | null => {
-      const already = bought.get(itemId) ?? 0;
+    // Pass 1: choose a recipe for each skill point by expected cost, tracking how
+    // much of each item has been used so later points see dearer prices.
+    const used = new Map(bought);
+    const made = new Map(stock);
+    const choices: Array<{ skill: number; recipe: Recipe; crafts: number }> = [];
+
+    const priceOf = (itemId: number, quantity: number) => {
       const vendorPrice = vendor[itemId];
-      const item = market.get(itemId);
-      const cost = vendorPrice !== undefined ? vendorPrice * quantity : costToBuy(item?.book, quantity, already);
-      if (cost === null) return null;
-      return {
-        itemId,
-        name: nameOf(itemId),
-        quantity,
-        crafted: 0,
-        cost,
-        vendor: vendorPrice !== undefined,
-        estimated: vendorPrice === undefined && already + quantity > (item?.exactUnits ?? 0),
-      };
+      if (vendorPrice !== undefined) return vendorPrice * quantity;
+      return costToBuy(market.get(itemId)?.book, quantity, used.get(itemId) ?? 0);
     };
-
-    // Rounding crafts up can need more than is listed; if so, cover fewer points.
-    let crafts = 0;
-    let materials: StepMaterial[] = [];
-    let spare: Array<[number, number]> = []; // left over from crafting reagents
-    let affordable = false;
-    for (; end > index && !affordable; end -= affordable ? 0 : 1) {
-      const expected = choices.slice(index, end).reduce((sum, choice) => sum + choice.crafts, 0);
-      crafts = Math.ceil(expected - 1e-9);
-      materials = [];
-      spare = [];
-      affordable = true;
-      for (const reagent of first.recipe.reagents) {
-        const quantity = reagent.quantity * crafts;
-        const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
-        const toBuy = quantity - crafted;
-        const fromStock: StepMaterial = {
-          ...buyLine(reagent.itemId, 0)!,
-          quantity: crafted,
-          crafted,
-          cost: 0,
-          estimated: false,
-        };
-        if (toBuy === 0) {
-          materials.push(fromStock);
-          continue;
-        }
-
-        const direct = buyLine(reagent.itemId, toBuy);
-        const maker = makers.get(reagent.itemId);
-        let inputs: StepMaterial[] | null = null;
-        if (maker && first.skill >= maker.learn) {
-          const batches = Math.ceil(toBuy / maker.makes.quantity);
-          const via = { name: nameOf(reagent.itemId), quantity: toBuy };
-          inputs = [];
-          for (const input of maker.reagents) {
-            const line = buyLine(input.itemId, input.quantity * batches);
-            if (!line) {
-              inputs = null;
-              break;
-            }
-            inputs.push({ ...line, via });
+    // Cheapest way to get `quantity` more of an item: buy it, or craft it from inputs.
+    const cheapest = (itemId: number, quantity: number, skill: number): { cost: number; via?: Recipe } | null => {
+      const buy = priceOf(itemId, quantity);
+      const maker = makers.get(itemId);
+      let craft: number | null = null;
+      if (maker && skill >= maker.learn) {
+        craft = 0;
+        for (const input of maker.reagents) {
+          const cost = priceOf(input.itemId, (quantity * input.quantity) / maker.makes.quantity);
+          if (cost === null) {
+            craft = null;
+            break;
           }
-          const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
-          if (inputs && direct && direct.cost < inputCost) inputs = null;
-          if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
-        }
-
-        if (inputs) {
-          if (crafted > 0) materials.push(fromStock);
-          materials.push(...inputs);
-        } else if (direct) {
-          materials.push({ ...direct, quantity, crafted });
-        } else {
-          affordable = false;
-          break;
+          craft += cost;
         }
       }
-    }
-    if (!affordable) break;
+      if (craft !== null && maker && (buy === null || craft <= buy)) return { cost: craft, via: maker };
+      return buy === null ? null : { cost: buy };
+    };
+    const stillNeeded = (reagent: { itemId: number; quantity: number }, crafts: number) =>
+      Math.max(0, reagent.quantity * crafts - (made.get(reagent.itemId) ?? 0));
 
-    for (const material of materials) {
-      stock.set(material.itemId, (stock.get(material.itemId) ?? 0) - material.crafted);
-      bought.set(material.itemId, (bought.get(material.itemId) ?? 0) + material.quantity - material.crafted);
+    for (let skill = reached; skill < to; skill++) {
+      let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
+      for (const recipe of profession.recipes) {
+        const chance = skillUpChance(recipe, skill);
+        if (chance === 0 || banned.has(`${recipe.spellId}@${skill}`)) continue;
+        const crafts = 1 / chance;
+
+        let cost = 0;
+        for (const reagent of recipe.reagents) {
+          const rest = stillNeeded(reagent, crafts);
+          if (rest === 0) continue;
+          const source = cheapest(reagent.itemId, rest, skill);
+          if (!source) {
+            cost = Infinity;
+            break;
+          }
+          cost += source.cost;
+        }
+        if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
+      }
+      if (!best) break; // nothing can be crafted for this point
+
+      choices.push({ skill, recipe: best.recipe, crafts: best.crafts });
+      for (const reagent of best.recipe.reagents) {
+        const need = reagent.quantity * best.crafts;
+        const rest = stillNeeded(reagent, best.crafts);
+        const via = rest > 0 ? cheapest(reagent.itemId, rest, skill)?.via : undefined;
+        made.set(reagent.itemId, (made.get(reagent.itemId) ?? 0) - (need - rest));
+        if (via) {
+          for (const input of via.reagents) {
+            used.set(input.itemId, (used.get(input.itemId) ?? 0) + (rest * input.quantity) / via.makes.quantity);
+          }
+        } else {
+          used.set(reagent.itemId, (used.get(reagent.itemId) ?? 0) + rest);
+        }
+      }
+      const product = best.recipe.makes;
+      made.set(product.itemId, (made.get(product.itemId) ?? 0) + product.quantity * best.crafts);
     }
-    const product = first.recipe.makes;
-    for (const [itemId, quantity] of [...spare, [product.itemId, product.quantity * crafts] as const]) {
-      stock.set(itemId, (stock.get(itemId) ?? 0) + quantity);
+
+    // Pass 2: group consecutive points on the same recipe into steps (never
+    // across a tier break) and price each step exactly, walking the order books.
+    let index = 0;
+
+    while (index < choices.length) {
+      const first = choices[index]!;
+      let end = index;
+      while (
+        end < choices.length &&
+        choices[end]!.recipe === first.recipe &&
+        (end === index || !TIER_BREAKS.includes(choices[end]!.skill))
+      ) {
+        end++;
+      }
+      const fullEnd = end;
+
+      // What it costs to buy `quantity` of an item on top of what is already bought.
+      const buyLine = (itemId: number, quantity: number): StepMaterial | null => {
+        const already = bought.get(itemId) ?? 0;
+        const vendorPrice = vendor[itemId];
+        const item = market.get(itemId);
+        const cost = vendorPrice !== undefined ? vendorPrice * quantity : costToBuy(item?.book, quantity, already);
+        if (cost === null) return null;
+        return {
+          itemId,
+          name: nameOf(itemId),
+          quantity,
+          crafted: 0,
+          cost,
+          vendor: vendorPrice !== undefined,
+          estimated: vendorPrice === undefined && already + quantity > (item?.exactUnits ?? 0),
+        };
+      };
+
+      // Rounding crafts up can need more than is listed; if so, cover fewer points.
+      let crafts = 0;
+      let materials: StepMaterial[] = [];
+      let spare: Array<[number, number]> = []; // left over from crafting reagents
+      let affordable = false;
+      for (; end > index && !affordable; end -= affordable ? 0 : 1) {
+        const expected = choices.slice(index, end).reduce((sum, choice) => sum + choice.crafts, 0);
+        crafts = Math.ceil(expected - 1e-9);
+        materials = [];
+        spare = [];
+        affordable = true;
+        for (const reagent of first.recipe.reagents) {
+          const quantity = reagent.quantity * crafts;
+          const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
+          const toBuy = quantity - crafted;
+          const fromStock: StepMaterial = {
+            ...buyLine(reagent.itemId, 0)!,
+            quantity: crafted,
+            crafted,
+            cost: 0,
+            estimated: false,
+          };
+          if (toBuy === 0) {
+            materials.push(fromStock);
+            continue;
+          }
+
+          const direct = buyLine(reagent.itemId, toBuy);
+          const maker = makers.get(reagent.itemId);
+          let inputs: StepMaterial[] | null = null;
+          if (maker && first.skill >= maker.learn) {
+            const batches = Math.ceil(toBuy / maker.makes.quantity);
+            const via = { name: nameOf(reagent.itemId), quantity: toBuy };
+            inputs = [];
+            for (const input of maker.reagents) {
+              const line = buyLine(input.itemId, input.quantity * batches);
+              if (!line) {
+                inputs = null;
+                break;
+              }
+              inputs.push({ ...line, via });
+            }
+            const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
+            if (inputs && direct && direct.cost < inputCost) inputs = null;
+            if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
+          }
+
+          if (inputs) {
+            if (crafted > 0) materials.push(fromStock);
+            materials.push(...inputs);
+          } else if (direct) {
+            materials.push({ ...direct, quantity, crafted });
+          } else {
+            affordable = false;
+            break;
+          }
+        }
+      }
+      if (!affordable) {
+        banned.add(`${first.recipe.spellId}@${first.skill}`);
+        replan = true;
+        break;
+      }
+
+      for (const material of materials) {
+        stock.set(material.itemId, (stock.get(material.itemId) ?? 0) - material.crafted);
+        bought.set(material.itemId, (bought.get(material.itemId) ?? 0) + material.quantity - material.crafted);
+      }
+      const product = first.recipe.makes;
+      for (const [itemId, quantity] of [...spare, [product.itemId, product.quantity * crafts] as const]) {
+        stock.set(itemId, (stock.get(itemId) ?? 0) + quantity);
+      }
+      const last = choices[end - 1]!;
+      steps.push({
+        from: first.skill,
+        to: last.skill + 1,
+        spellId: first.recipe.spellId,
+        recipeName: first.recipe.name,
+        crafts,
+        guaranteed: last.skill < first.recipe.yellow,
+        plan: first.recipe.plan ?? false,
+        materials,
+        cost: materials.reduce((sum, m) => sum + m.cost, 0),
+      });
+      reached = last.skill + 1;
+      if (end < fullEnd) {
+        replan = true;
+        break;
+      }
+      index = end;
     }
-    const last = choices[end - 1]!;
-    steps.push({
-      from: first.skill,
-      to: last.skill + 1,
-      spellId: first.recipe.spellId,
-      recipeName: first.recipe.name,
-      crafts,
-      guaranteed: last.skill < first.recipe.yellow,
-      plan: first.recipe.plan ?? false,
-      materials,
-      cost: materials.reduce((sum, m) => sum + m.cost, 0),
-    });
-    reached = last.skill + 1;
-    if (end < fullEnd) break;
-    index = end;
   }
 
   // Totals per tier, and one shopping list for the whole plan.
