@@ -166,6 +166,15 @@ describe("planLevelling", () => {
     assert.equal(plan.steps[1]?.cost, 60);
   });
 
+  it("skips a recipe when too little of a reagent is listed for the crafts it needs", () => {
+    // At skill 19 Early needs 10 crafts; only 3 Herb A are listed, so Late is used.
+    const plan = planLevelling(TEST, market({ 1: [[1, 3]], 2: [[10, 1000]] }), 19, 20);
+    assert.deepEqual(
+      plan.steps.map((s) => [s.recipeName, s.crafts]),
+      [["Late", 1]],
+    );
+  });
+
   it("stops where the market runs out", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 5]] }), 1, 20);
 

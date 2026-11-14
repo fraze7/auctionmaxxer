@@ -90,16 +90,6 @@ export const MAX_SKILL = 300;
 // Skill tiers: where the totals are split.
 const TIER_BREAKS = [150, 225];
 
-// Price of the unit at `position` (0 = cheapest), or null when none is left.
-function unitPriceAt(book: Book, position: number): number | null {
-  let seen = 0;
-  for (const level of book) {
-    seen += level.quantity;
-    if (position < seen) return level.unitPrice;
-  }
-  return null;
-}
-
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
 
@@ -112,27 +102,32 @@ export function planLevelling(profession: Profession, market: Market, from: numb
   const made = new Map<number, number>(); // crafted earlier and not yet used
   const choices: Array<{ skill: number; recipe: Recipe; crafts: number }> = [];
 
-  const nextPrice = (itemId: number) =>
-    vendor[itemId] ?? unitPriceAt(market.get(itemId)?.book ?? [], Math.floor(used.get(itemId) ?? 0));
-  // Cheapest way to get one more of an item: buy it, or craft it from inputs.
-  const cheapest = (itemId: number, skill: number): { price: number; via?: Recipe } | null => {
-    const buy = nextPrice(itemId);
+  const priceOf = (itemId: number, quantity: number) => {
+    const vendorPrice = vendor[itemId];
+    if (vendorPrice !== undefined) return vendorPrice * quantity;
+    return costToBuy(market.get(itemId)?.book, quantity, used.get(itemId) ?? 0);
+  };
+  // Cheapest way to get `quantity` more of an item: buy it, or craft it from inputs.
+  const cheapest = (itemId: number, quantity: number, skill: number): { cost: number; via?: Recipe } | null => {
+    const buy = priceOf(itemId, quantity);
     const maker = makers.get(itemId);
     let craft: number | null = null;
     if (maker && skill >= maker.learn) {
       craft = 0;
       for (const input of maker.reagents) {
-        const price = nextPrice(input.itemId);
-        if (price === null) {
+        const cost = priceOf(input.itemId, (quantity * input.quantity) / maker.makes.quantity);
+        if (cost === null) {
           craft = null;
           break;
         }
-        craft += (price * input.quantity) / maker.makes.quantity;
+        craft += cost;
       }
     }
-    if (craft !== null && maker && (buy === null || craft <= buy)) return { price: craft, via: maker };
-    return buy === null ? null : { price: buy };
+    if (craft !== null && maker && (buy === null || craft <= buy)) return { cost: craft, via: maker };
+    return buy === null ? null : { cost: buy };
   };
+  const stillNeeded = (reagent: { itemId: number; quantity: number }, crafts: number) =>
+    Math.max(0, reagent.quantity * crafts - (made.get(reagent.itemId) ?? 0));
 
   for (let skill = from; skill < to; skill++) {
     let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
@@ -143,13 +138,14 @@ export function planLevelling(profession: Profession, market: Market, from: numb
 
       let cost = 0;
       for (const reagent of recipe.reagents) {
-        if ((made.get(reagent.itemId) ?? 0) >= reagent.quantity * crafts) continue; // already have them
-        const source = cheapest(reagent.itemId, skill);
+        const rest = stillNeeded(reagent, crafts);
+        if (rest === 0) continue;
+        const source = cheapest(reagent.itemId, rest, skill);
         if (!source) {
           cost = Infinity;
           break;
         }
-        cost += source.price * reagent.quantity * crafts;
+        cost += source.cost;
       }
       if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
     }
@@ -158,10 +154,9 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     choices.push({ skill, recipe: best.recipe, crafts: best.crafts });
     for (const reagent of best.recipe.reagents) {
       const need = reagent.quantity * best.crafts;
-      const fromMade = Math.min(made.get(reagent.itemId) ?? 0, need);
-      made.set(reagent.itemId, (made.get(reagent.itemId) ?? 0) - fromMade);
-      const rest = need - fromMade;
-      const via = cheapest(reagent.itemId, skill)?.via;
+      const rest = stillNeeded(reagent, best.crafts);
+      const via = rest > 0 ? cheapest(reagent.itemId, rest, skill)?.via : undefined;
+      made.set(reagent.itemId, (made.get(reagent.itemId) ?? 0) - (need - rest));
       if (via) {
         for (const input of via.reagents) {
           used.set(input.itemId, (used.get(input.itemId) ?? 0) + (rest * input.quantity) / via.makes.quantity);
