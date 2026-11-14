@@ -4,7 +4,7 @@ import { r } from "./recipe.js";
 
 // Engineering recipes for WoW: Forever, from Wowhead's spell list (14 Nov
 // 2026). Trainer recipes and the three starting recipes, plus three schematics
-// Wowhead lists as vendor-sold: trainer recipes stop giving points at 290.
+// sold by vendors with no reputation needed (two checked in game): trainer recipes stop giving points at 290.
 // Left out: Gnomish and Goblin specialisation recipes, drops and quest
 // schematics.
 

@@ -2,9 +2,10 @@ import type { Profession, Recipe } from "../levelling.js";
 import { r } from "./recipe.js";
 
 // Leatherworking recipes for WoW: Forever, from Wowhead's spell list (14 Nov
-// 2026). Trainer recipes and the six starting recipes, plus nine patterns
-// Wowhead lists as vendor-sold: trainer recipes stop giving points at 265.
-// Left out: specialisation recipes, drops, quest and reputation patterns.
+// 2026). Trainer recipes and the six starting recipes, plus two patterns sold
+// by vendors with no reputation needed (checked in game): trainer recipes stop
+// giving points at 265. Left out: anything needing a specialisation (Chimeric
+// Gloves need Tribal), drops, quest and reputation patterns.
 
 const COARSE_THREAD = 2320;
 const FINE_THREAD = 2321;
@@ -104,15 +105,8 @@ const RECIPES: Recipe[] = [
   r(10647, "Feathered Breastplate", [225, 245, 265], [8349, 1], [[THICK, 40], [8168, 40], [7971, 2], [8172, 4], [HEAVY_SILKEN_THREAD, 4]]),
 
   // Vendor patterns.
-  r(19048, "Heavy Scorpid Bracers", [0, 255, 270], [15077, 1], [[RUGGED, 4], [15408, 4], [RUNE_THREAD, 1]], true),
   r(19049, "Wicked Leather Gauntlets", [235, 255, 275], [15083, 1], [[RUGGED, 8], [BLACK_DYE, 1], [RUNE_THREAD, 1]], true),
-  r(19053, "Chimeric Gloves", [240, 260, 280], [15074, 1], [[RUGGED, 6], [15423, 6], [RUNE_THREAD, 1]], true),
-  r(19061, "Living Shoulders", [245, 265, 285], [15061, 1], [[RUGGED, 12], [12803, 4], [RUNE_THREAD, 1]], true),
-  r(19066, "Frostsaber Boots", [250, 270, 290], [15071, 1], [[RUGGED, 4], [15422, 6], [RUNE_THREAD, 1]], true),
-  r(19067, "Stormshroud Pants", [250, 270, 290], [15057, 1], [[RUGGED, 16], [7080, 2], [7082, 2], [RUNE_THREAD, 1]], true),
-  r(19077, "Blue Dragonscale Breastplate", [260, 280, 300], [15048, 1], [[RUGGED, 28], [15415, 30], [15407, 1], [RUNE_THREAD, 1]], true),
   r(19082, "Runic Leather Headband", [265, 285, 305], [15094, 1], [[RUGGED, 14], [14047, 10], [RUNE_THREAD, 1]], true),
-  r(19088, "Heavy Scorpid Helm", [270, 290, 310], [15080, 1], [[RUGGED, 8], [15408, 12], [15407, 1], [RUNE_THREAD, 1]], true),
 ];
 
 export const LEATHERWORKING: Profession = {
@@ -166,8 +160,6 @@ export const LEATHERWORKING: Profession = {
     7069: "Elemental Air",
     7070: "Elemental Water",
     7071: "Iron Buckle",
-    7080: "Essence of Water",
-    7082: "Essence of Air",
     7286: "Black Whelp Scale",
     7971: "Black Pearl",
     8146: "Wicked Claw",
@@ -180,14 +172,9 @@ export const LEATHERWORKING: Profession = {
     8368: "Thick Wolfhide",
     8949: "Elixir of Agility",
     8951: "Elixir of Defense",
-    12803: "Living Essence",
     14047: "Runecloth",
     [RUNE_THREAD]: "Rune Thread",
     15407: "Cured Rugged Hide",
-    15408: "Heavy Scorpid Scale",
     15409: "Refined Deeprock Salt",
-    15415: "Blue Dragonscale",
-    15422: "Frostsaber Leather",
-    15423: "Chimera Leather",
   },
 };
