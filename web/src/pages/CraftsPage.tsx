@@ -102,7 +102,7 @@ export function CraftsPage() {
             rows={rows}
             columns={COLUMNS}
             rowKey={(craft) => `${craft.profession.id}-${craft.spellId}`}
-            initialSort={{ key: 'profit', direction: 'desc' }}
+            initialSort={{ key: 'margin', direction: 'desc' }}
           />
           <p className="text-xs text-zinc-500">
             Cost, Sells for and Profit are for one craft, after the auction house keeps{' '}

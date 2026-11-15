@@ -247,9 +247,9 @@ describe("the crate table", () => {
     assert.ok(crafted.every((c) => /Fabrics|Ingots|Parts/.test(c.name)));
   });
 
-  it("pays double for crafted crates and flags the Artisan estimates", () => {
+  it("pays double for crafted crates", () => {
     assert.deepEqual(favorFor({ tier: "Apprentice", crafted: false }), { favor: 5, estimated: false });
     assert.deepEqual(favorFor({ tier: "Expert", crafted: true }), { favor: 30, estimated: false });
-    assert.deepEqual(favorFor({ tier: "Artisan", crafted: true }), { favor: 40, estimated: true });
+    assert.deepEqual(favorFor({ tier: "Artisan", crafted: true }), { favor: 40, estimated: false });
   });
 });

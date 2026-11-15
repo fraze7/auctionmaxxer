@@ -18,12 +18,12 @@ export interface Crate {
   bundles: CrateBundle[];
 }
 
-// Favor per hand-in. The Artisan figures are unconfirmed estimates.
+// Favor per hand-in, all confirmed in game (Artisan on 15 Nov 2026).
 const FAVOR: Record<CrateTier, { raw: number; crafted: number; estimated: boolean }> = {
   Apprentice: { raw: 5, crafted: 10, estimated: false },
   Journeyman: { raw: 10, crafted: 20, estimated: false },
   Expert: { raw: 15, crafted: 30, estimated: false },
-  Artisan: { raw: 20, crafted: 40, estimated: true },
+  Artisan: { raw: 20, crafted: 40, estimated: false },
 };
 
 export function favorFor(crate: Pick<Crate, "tier" | "crafted">): { favor: number; estimated: boolean } {
