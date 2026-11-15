@@ -5,6 +5,7 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
+import { useSkills } from '../profile.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // Recipes whose product sells for more than its materials cost. Worked out on
@@ -23,9 +24,19 @@ export function CraftsPage() {
     refetchInterval: 5 * 60_000,
   })
 
+  // With a saved character, only what it can make is shown unless asked otherwise.
+  const skills = useSkills()
+  const [everyone, setEveryone] = useUrlParam('everyone')
+  const hasCrafting = (crafts.data?.professions ?? []).some((p) => skills.has(p.id))
+  const onlyMine = hasCrafting && everyone !== '1'
+  const canMake = (craft: Craft) => (skills.get(craft.profession.id) ?? 0) >= craft.skill
+
   const options = [{ id: '', name: 'All' }, ...(crafts.data?.professions ?? [])]
   const rows = (crafts.data?.crafts ?? []).filter(
-    (craft) => (profession === '' || craft.profession.id === profession) && (show === 'all' || craft.totalProfit > 0),
+    (craft) =>
+      (profession === '' || craft.profession.id === profession) &&
+      (show === 'all' || craft.totalProfit > 0) &&
+      (!onlyMine || canMake(craft)),
   )
 
   return (
@@ -77,6 +88,17 @@ export function CraftsPage() {
           />
           Show crafts that lose money too
         </label>
+        {hasCrafting && (
+          <label className="flex items-center gap-2 pb-1.5 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={onlyMine}
+              onChange={(event) => setEveryone(event.target.checked ? '' : '1')}
+              className="accent-amber-500"
+            />
+            Only what my character can make
+          </label>
+        )}
       </div>
 
       {crafts.isPending ? (

@@ -6,6 +6,7 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
+import { useSkills } from '../profile.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // The cheapest way to level a profession at current prices. The route is
@@ -14,14 +15,25 @@ import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring', 'leatherworking', 'engineering', 'enchanting']
 
 export function LevellingPage() {
+  // The saved character sets the defaults; the URL overrides them.
+  const skills = useSkills()
   const [chosen, setChosen] = useUrlParam('profession')
-  const profession = PROFESSION_IDS.includes(chosen) ? chosen : 'alchemy'
-  // Skill in the helper profession (Mining for Blacksmithing); empty means not trained.
+  const mine = PROFESSION_IDS.find((id) => skills.has(id))
+  const profession = PROFESSION_IDS.includes(chosen) ? chosen : (mine ?? 'alchemy')
+
+  // Skill in the helper profession (Mining for Blacksmithing). Empty = as saved; 0 = not trained.
   const [helperText, setHelperText] = useUrlParam('helper')
-  const helperSkill = Math.min(toWholeNumber(helperText) ?? 0, 300)
+  const helperSkill = Math.min(toWholeNumber(helperText) ?? skills.get('mining') ?? 0, 300)
+
+  // Start from the character's skill unless the whole route is asked for.
+  const [whole, setWhole] = useUrlParam('whole')
+  const mySkill = skills.get(profession)
+  const canStartFromMine = mySkill !== undefined && mySkill > 1 && mySkill < 300
+  const from = canStartFromMine && whole !== '1' ? mySkill : 1
+
   const levelling = useQuery({
-    queryKey: ['levelling', profession, helperSkill],
-    queryFn: () => levellingApi.get({ profession, helperSkill }),
+    queryKey: ['levelling', profession, helperSkill, from],
+    queryFn: () => levellingApi.get({ profession, helperSkill, from }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
@@ -54,13 +66,25 @@ export function LevellingPage() {
         </div>
       </div>
 
+      {canStartFromMine && (
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={whole !== '1'}
+            onChange={(event) => setWhole(event.target.checked ? '' : '1')}
+            className="accent-amber-500"
+          />
+          Start from my skill ({mySkill})
+        </label>
+      )}
+
       {levelling.data?.helper && (
         <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={helperSkill > 0}
-              onChange={(event) => setHelperText(event.target.checked ? '300' : '')}
+              onChange={(event) => setHelperText(event.target.checked ? String(skills.get('mining') ?? 300) : '0')}
               className="accent-amber-500"
             />
             I have {levelling.data.helper.name}
@@ -71,8 +95,8 @@ export function LevellingPage() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={helperText}
-                onChange={(event) => setHelperText(event.target.value.replace(/\D/g, '').slice(0, 3))}
+                value={helperText === '' ? String(helperSkill) : helperText}
+                onChange={(event) => setHelperText(event.target.value.replace(/\D/g, '').slice(0, 3) || '0')}
                 className="tabular w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
               />
             </label>

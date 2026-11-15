@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
 import { LastUpdated, RefreshOnNewSnapshot, StaleBanner } from './components/StatusBar.tsx'
 import { DealsPage } from './pages/DealsPage.tsx'
+import { CharacterPage } from './pages/CharacterPage.tsx'
 import { CraftsPage } from './pages/CraftsPage.tsx'
 import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
@@ -35,6 +36,7 @@ export default function App() {
             <Tab to="/watchlist" badge={triggered}>
               Watchlist
             </Tab>
+            <Tab to="/character">Character</Tab>
           </nav>
           <span className="ml-auto">
             <LastUpdated />
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/crafts" element={<CraftsPage />} />
           <Route path="/levelling" element={<LevellingPage />} />
           <Route path="/record" element={<RecordPage />} />
+          <Route path="/character" element={<CharacterPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

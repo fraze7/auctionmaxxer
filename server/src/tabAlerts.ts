@@ -2,6 +2,7 @@ import { findCrafts } from "./crafts.js";
 import type { Db } from "./db.js";
 import { findDeals } from "./deals.js";
 import { ALL_PROFESSIONS } from "./professions/index.js";
+import { canMake, loadSkills } from "./profile.js";
 import { findResets } from "./resets.js";
 import type { Settings } from "./settings.js";
 import { findVendorDeals } from "./vendor.js";
@@ -98,11 +99,13 @@ function candidates(kind: TabKind, { db, houseId, settings }: CheckOptions): Arr
         .map((r) => ({ itemId: r.id, profit: r.profit }));
     case "vendor":
       return findVendorDeals(db, houseId).deals.map((d) => ({ itemId: d.id, profit: d.profit }));
-    case "craft":
-      return findCrafts(db, houseId, ALL_PROFESSIONS, settings.ahCut).crafts.map((c) => ({
-        itemId: c.productId,
-        profit: c.totalProfit,
-      }));
+    case "craft": {
+      // Only recipes the saved character can make.
+      const skills = loadSkills(db);
+      return findCrafts(db, houseId, ALL_PROFESSIONS, settings.ahCut)
+        .crafts.filter((c) => canMake(skills, c.profession.id, c.skill))
+        .map((c) => ({ itemId: c.productId, profit: c.totalProfit }));
+    }
   }
 }
 

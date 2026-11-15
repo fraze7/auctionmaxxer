@@ -7,6 +7,7 @@ import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
 import { findMovers } from "./movers.js";
 import { PROFESSIONS } from "./professions/index.js";
+import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
@@ -517,6 +518,23 @@ export function createApp(options: ApiOptions): Express {
       tabRules: listTabRules(db, houseId),
       tabAlerts: listTabAlerts(db, houseId),
     });
+  });
+
+  // GET /api/profile  - the character's professions and skills, see profile.ts
+  app.get("/api/profile", (_req, res) => {
+    res.json({ professions: loadProfile(db) });
+  });
+
+  // POST /api/profile { skills: { blacksmithing: 150, mining: 200 } }  - replaces the profile
+  app.post("/api/profile", requireJson, jsonBody, (req, res) => {
+    const body = parse(
+      z.object({
+        skills: z.partialRecord(z.enum(PROFILE_IDS as [string, ...string[]]), z.number().int().min(1).max(MAX_SKILL)),
+      }),
+      req.body,
+    );
+    saveProfile(db, body.skills as Record<string, number>);
+    res.status(201).json({ professions: loadProfile(db) });
   });
 
   // POST /api/tab-alerts { kind, minProfit }  - turn a tab's alerts on, or change the amount

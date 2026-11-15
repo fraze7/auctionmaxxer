@@ -521,3 +521,22 @@ export interface RecordResponse {
 export const recordApi = {
   get: () => get<RecordResponse>('/api/record'),
 }
+
+// --- Character profile ---
+
+export interface ProfileProfession {
+  id: string
+  name: string
+  kind: 'crafting' | 'gathering'
+  skill: number | null // null = the character does not have it
+}
+
+export interface Profile {
+  professions: ProfileProfession[]
+}
+
+export const profileApi = {
+  get: () => get<Profile>('/api/profile'),
+  // Replaces the whole profile: only the professions listed are kept.
+  save: (skills: Record<string, number>) => send<Profile>('POST', '/api/profile', { skills }),
+}
