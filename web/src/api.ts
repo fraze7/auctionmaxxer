@@ -449,3 +449,42 @@ export interface ResetsResponse {
 export const resetsApi = {
   get: (params: { maxCost?: number; minRise?: number }) => get<ResetsResponse>('/api/resets', params),
 }
+
+// --- Track record ---
+
+export interface Outcome {
+  id: number
+  kind: 'deal' | 'reset'
+  itemId: number
+  name: string | null
+  quality: string | null
+  takenAt: number
+  units: number
+  cost: number
+  expectedProfit: number
+  status: 'pending' | 'unlisted' | 'judged' // pending = not a day old; unlisted = none on sale a day later
+  laterPrice: number | null
+  actualProfit: number | null
+}
+
+export interface KindSummary {
+  kind: 'deal' | 'reset'
+  saved: number
+  judged: number
+  profitable: number
+  cost: number
+  expectedProfit: number
+  actualProfit: number
+}
+
+export interface RecordResponse {
+  house: number
+  ahCut: number
+  since: number | null // null = nothing recorded yet
+  summary: KindSummary[]
+  recent: Outcome[]
+}
+
+export const recordApi = {
+  get: () => get<RecordResponse>('/api/record'),
+}

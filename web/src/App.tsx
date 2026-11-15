@@ -7,6 +7,7 @@ import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 import { LevellingPage } from './pages/LevellingPage.tsx'
 import { MoversPage } from './pages/MoversPage.tsx'
+import { RecordPage } from './pages/RecordPage.tsx'
 import { ResetsPage } from './pages/ResetsPage.tsx'
 import { VendorPage } from './pages/VendorPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
@@ -30,6 +31,7 @@ export default function App() {
             <Tab to="/favor">Favor</Tab>
             <Tab to="/crafts">Crafts</Tab>
             <Tab to="/levelling">Levelling</Tab>
+            <Tab to="/record">Record</Tab>
             <Tab to="/watchlist" badge={triggered}>
               Watchlist
             </Tab>
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/vendor" element={<VendorPage />} />
           <Route path="/crafts" element={<CraftsPage />} />
           <Route path="/levelling" element={<LevellingPage />} />
+          <Route path="/record" element={<RecordPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

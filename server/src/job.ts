@@ -3,7 +3,9 @@ import { collectOnce } from "./collector.js";
 import type { DataSource } from "./dataSource.js";
 import type { Db } from "./db.js";
 import { sendPendingAlerts } from "./notify.js";
+import { recordRecommendations } from "./record.js";
 import { pruneOldLevels } from "./retention.js";
+import { loadSettings } from "./settings.js";
 import { checkWatches } from "./watchlist.js";
 
 // One full run: collect, check the watchlist, send alerts, look up item names.
@@ -49,6 +51,14 @@ export async function runJob(options: JobOptions): Promise<boolean> {
 
     const raised = checkWatches({ db, houseId });
     if (raised > 0) log(`Watchlist: ${raised} new alert${raised === 1 ? "" : "s"}`);
+
+    // For the track record. A failure here is logged but never fails the run.
+    try {
+      const saved = recordRecommendations({ db, houseId, settings: loadSettings(db) });
+      if (saved > 0) log(`Track record: saved ${saved} new pick${saved === 1 ? "" : "s"}`);
+    } catch (err) {
+      log(`Track record: saving failed (${err instanceof Error ? err.message : String(err)})`);
+    }
   }
 
   // Every tick, so rules added on the site and failed sends are picked up.

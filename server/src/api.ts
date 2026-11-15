@@ -12,6 +12,7 @@ import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
 import { TAILORING } from "./professions/tailoring.js";
 import { findMovers } from "./movers.js";
+import { loadTrackRecord } from "./record.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
 import { findVendorDeals } from "./vendor.js";
@@ -465,6 +466,14 @@ export function createApp(options: ApiOptions): Express {
       minRise: query.minRise,
       ...findResets({ db, houseId, ahCut, maxCost: query.maxCost, minRise: query.minRise, limit: query.limit }),
     });
+  });
+
+  // GET /api/record?house=  - see record.ts
+  app.get("/api/record", (req, res) => {
+    const query = parse(z.object({ house: houseParam }), req.query);
+    const houseId = query.house ?? defaultHouseId;
+    const { ahCut } = loadSettings(db);
+    res.json({ house: houseId, ahCut, ...loadTrackRecord(db, houseId, ahCut) });
   });
 
   // GET /api/vendor?house=  - see vendor.ts
