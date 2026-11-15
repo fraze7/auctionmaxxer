@@ -84,9 +84,7 @@ export interface FindDealsOptions {
   db: Db;
   houseId: number;
   settings: Settings;
-  // "falling" lists items in a falling market, which are never deals.
-  show: "deals" | "falling";
-  minProfit: number; // copper per unit; only applies to show = "deals"
+  minProfit: number; // copper per unit
   maxQty?: number; // most units you'd buy of one item
   limit: number;
 }
@@ -171,11 +169,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     if (!evaluation) continue;
     itemsJudged++;
 
-    const wanted =
-      options.show === "falling"
-        ? evaluation.trend === "falling"
-        : evaluation.isDeal && evaluation.profitPerUnit >= options.minProfit;
-    if (!wanted) continue;
+    if (!evaluation.isDeal || evaluation.profitPerUnit < options.minProfit) continue;
 
     const buyQty = Math.min(row.qty_at_min, options.maxQty ?? Infinity);
     deals.push({
@@ -192,11 +186,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     });
   }
 
-  if (options.show === "falling") {
-    deals.sort((a, b) => a.trendRatio - b.trendRatio || a.id - b.id); // steepest fall first
-  } else {
-    deals.sort((a, b) => b.totalProfit - a.totalProfit || a.id - b.id); // biggest profit first
-  }
+  deals.sort((a, b) => b.totalProfit - a.totalProfit || a.id - b.id); // biggest profit first
 
   return { takenAt: latest.taken_at, snapshotsInWindow, itemsJudged, deals: deals.slice(0, options.limit) };
 }

@@ -1,11 +1,10 @@
 import { useUrlParam } from '../useUrlParam.ts'
 
-// The three lists on the Deals tab, kept in the URL as ?show=.
+// The two lists on the Deals tab, kept in the URL as ?show=.
 
 const VIEWS = [
   { value: 'deals', label: 'Deals' },
   { value: 'resets', label: 'Resets' },
-  { value: 'falling', label: 'Falling' },
 ] as const
 
 export type View = (typeof VIEWS)[number]['value']

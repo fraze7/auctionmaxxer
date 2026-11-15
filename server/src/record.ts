@@ -27,7 +27,7 @@ interface RecordOptions {
 // Saves this snapshot's top picks. An item already saved for the same tab in
 // the last day is skipped, so a deal that sits there for hours counts once.
 export function recordRecommendations({ db, houseId, settings }: RecordOptions): number {
-  const deals = findDeals({ db, houseId, settings, show: "deals", minProfit: settings.dealMinProfit, limit: TOP });
+  const deals = findDeals({ db, houseId, settings, minProfit: settings.dealMinProfit, limit: TOP });
   const takenAt = deals.takenAt;
   if (takenAt === null) return 0;
   const resets = findResets({

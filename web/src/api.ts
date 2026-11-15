@@ -58,7 +58,6 @@ export interface Deal {
 
 export interface DealsResponse {
   house: number
-  show: 'deals' | 'falling'
   minProfit: number
   takenAt: number | null
   history: { snapshots: number; needed: number; ready: boolean; itemsJudged: number }
@@ -398,35 +397,6 @@ export interface CraftsResponse {
 
 export const craftsApi = {
   list: (params: { count?: number } = {}) => get<CraftsResponse>('/api/crafts', params),
-}
-
-// --- Movers ---
-
-export interface Mover {
-  id: number
-  name: string | null
-  quality: string | null
-  before: number // median then
-  now: number // median now
-  minPrice: number
-  quantity: number
-  change: number // now / before
-}
-
-export interface MoversResponse {
-  house: number
-  hours: number
-  minQuantity: number
-  minPrice: number
-  takenAt: number | null
-  comparedTo: number | null // null = no earlier snapshot to compare with
-  risers: Mover[]
-  fallers: Mover[]
-}
-
-export const moversApi = {
-  get: (params: { hours?: number; minQuantity?: number; minPrice?: number }) =>
-    get<MoversResponse>('/api/movers', params),
 }
 
 // --- Vendor ---

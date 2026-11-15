@@ -5,7 +5,6 @@ import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
-import { findMovers } from "./movers.js";
 import { PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
@@ -56,7 +55,6 @@ const StatusQuery = z.object({ house: houseParam });
 
 const DealsQuery = z.object({
   house: houseParam,
-  show: z.enum(["deals", "falling"]).default("deals"),
   minProfit: z.coerce.number().int().min(0).optional(), // copper per unit
   maxQty: positiveInt.optional(), // most units you'd buy of one item
   limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -354,7 +352,7 @@ export function createApp(options: ApiOptions): Express {
     });
   });
 
-  // GET /api/deals?house=&show=&minProfit=&maxQty=&limit=  - see deals.ts
+  // GET /api/deals?house=&minProfit=&maxQty=&limit=  - see deals.ts
   app.get("/api/deals", (req, res) => {
     const query = parse(DealsQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
@@ -366,7 +364,6 @@ export function createApp(options: ApiOptions): Express {
       db,
       houseId,
       settings,
-      show: query.show,
       minProfit,
       limit: query.limit,
       ...(query.maxQty === undefined ? {} : { maxQty: query.maxQty }),
@@ -374,7 +371,6 @@ export function createApp(options: ApiOptions): Express {
 
     res.json({
       house: houseId,
-      show: query.show,
       minProfit,
       takenAt: result.takenAt,
       // Lets the UI explain an empty list while history is still building.
@@ -424,22 +420,6 @@ export function createApp(options: ApiOptions): Express {
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       ...planLevelling(profession, market, query.from, query.to),
     });
-  });
-
-  // GET /api/movers?hours=&minQuantity=&minPrice=&limit=&house=  - see movers.ts
-  app.get("/api/movers", (req, res) => {
-    const query = parse(
-      z.object({
-        house: houseParam,
-        hours: z.coerce.number().int().min(1).max(720).default(24),
-        minQuantity: z.coerce.number().int().min(1).max(1_000_000).default(50),
-        minPrice: z.coerce.number().int().min(0).max(100_000_000).default(1000),
-        limit: z.coerce.number().int().min(1).max(100).default(25),
-      }),
-      req.query,
-    );
-    const houseId = query.house ?? defaultHouseId;
-    res.json({ house: houseId, hours: query.hours, minQuantity: query.minQuantity, minPrice: query.minPrice, ...findMovers({ db, houseId, ...query }) });
   });
 
   // GET /api/resets?maxCost=&minRise=&limit=&house=  - see resets.ts

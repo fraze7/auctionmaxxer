@@ -106,12 +106,10 @@ export function DealsPage() {
 
 function DealsView() {
   // Filters live in the URL, so views can be bookmarked.
-  const show = useView()
   const [minProfitText, setMinProfitText] = useUrlParam('minProfit')
   const [maxQtyText, setMaxQtyText] = useUrlParam('maxQty')
 
   const params = {
-    show: show === 'falling' ? 'falling' : 'deals',
     minProfit: toWholeNumber(minProfitText),
     maxQty: toWholeNumber(maxQtyText) || undefined, // 0 would be rejected; treat as "no cap"
   }
@@ -128,27 +126,21 @@ function DealsView() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4">
         <div className="mr-auto">
-          <h1 className="text-lg font-semibold text-zinc-100">
-            {params.show === 'falling' ? 'Falling markets' : 'Deals'}
-          </h1>
+          <h1 className="text-lg font-semibold text-zinc-100">Deals</h1>
           <p className="text-sm text-zinc-500">
-            {params.show === 'falling'
-              ? 'Items whose price is dropping. Cheap, but not deals: the price is still on its way down.'
-              : 'Priced well below their recent typical price, ranked by profit after the AH cut.'}
+            Priced well below their recent typical price, ranked by profit after the AH cut.
           </p>
         </div>
 
         <ShowToggle />
 
-        {params.show === 'deals' && (
-          <NumberField
-            label="Min profit / unit (copper)"
-            value={minProfitText}
-            onChange={setMinProfitText}
-            placeholder={String(settings.data?.dealMinProfit ?? 1)}
-            preview={params.minProfit}
-          />
-        )}
+        <NumberField
+          label="Min profit / unit (copper)"
+          value={minProfitText}
+          onChange={setMinProfitText}
+          placeholder={String(settings.data?.dealMinProfit ?? 1)}
+          preview={params.minProfit}
+        />
         <NumberField label="Max units to buy" value={maxQtyText} onChange={setMaxQtyText} placeholder="no cap" />
       </div>
 
@@ -164,8 +156,8 @@ function DealsView() {
         <p className="text-xs text-zinc-600">
           AH cut {Math.round(settings.data.ahCut * 100)}% · needs {settings.data.dealMinSnapshots} hourly snapshots ·
           deal when current min is at most {Math.round(settings.data.dealMaxPriceRatio * 100)}% of the 24h median ·
-          falling below {formatTrend(settings.data.dealTrendFalling)}, rising above{' '}
-          {formatTrend(settings.data.dealTrendRising)}
+          never when the 24h median is more than {Math.round((1 - settings.data.dealTrendFalling) * 100)}% below the 7d
+          median, since the price is still falling
         </p>
       )}
     </div>
@@ -191,10 +183,10 @@ function Results({ data }: { data: DealsResponse }) {
 
   if (data.deals.length === 0) {
     return (
-      <EmptyState title={data.show === 'falling' ? 'No falling markets right now' : 'No deals right now'}>
+      <EmptyState title="No deals right now">
         <p>
-          {formatNumber(data.history.itemsJudged)} items were checked against the rule.
-          {data.show === 'deals' && ' Try a lower minimum profit, or check back after the next snapshot.'}
+          {formatNumber(data.history.itemsJudged)} items were checked against the rule. Try a lower minimum profit, or
+          check back after the next snapshot.
         </p>
       </EmptyState>
     )
@@ -205,7 +197,7 @@ function Results({ data }: { data: DealsResponse }) {
       rows={data.deals}
       columns={columns}
       rowKey={(d) => d.id}
-      initialSort={data.show === 'falling' ? { key: 'trend', direction: 'asc' } : { key: 'total', direction: 'desc' }}
+      initialSort={{ key: 'total', direction: 'desc' }}
     />
   )
 }

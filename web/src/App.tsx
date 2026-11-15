@@ -7,7 +7,6 @@ import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 import { LevellingPage } from './pages/LevellingPage.tsx'
-import { MoversPage } from './pages/MoversPage.tsx'
 import { RecordPage } from './pages/RecordPage.tsx'
 import { VendorPage } from './pages/VendorPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
@@ -31,14 +30,8 @@ const GROUPS = [
       { to: '/favor', name: 'Favor' },
     ],
   },
-  {
-    name: 'Market',
-    tabs: [
-      { to: '/items', name: 'Items' },
-      { to: '/movers', name: 'Movers' },
-    ],
-  },
-  // One tab each, so these two are plain links with no row under them.
+  // One tab each, so these are plain links with no row under them.
+  { name: 'Items', tabs: [{ to: '/items', name: 'Items' }] },
   { name: 'Watchlist', tabs: [{ to: '/watchlist', name: 'Watchlist' }] },
   { name: 'Character', tabs: [{ to: '/character', name: 'Character' }] },
 ]
@@ -96,7 +89,6 @@ export default function App() {
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/favor" element={<FavorPage />} />
-          <Route path="/movers" element={<MoversPage />} />
           <Route path="/resets" element={<Navigate to="/?show=resets" replace />} />
           <Route path="/vendor" element={<VendorPage />} />
           <Route path="/crafts" element={<CraftsPage />} />

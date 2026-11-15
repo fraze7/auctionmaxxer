@@ -83,7 +83,7 @@ interface CheckOptions {
 function candidates(kind: TabKind, { db, houseId, settings }: CheckOptions): Array<{ itemId: number; profit: number }> {
   switch (kind) {
     case "deal":
-      return findDeals({ db, houseId, settings, show: "deals", minProfit: settings.dealMinProfit, limit: 50 }).deals.map(
+      return findDeals({ db, houseId, settings, minProfit: settings.dealMinProfit, limit: 50 }).deals.map(
         (d) => ({ itemId: d.id, profit: d.totalProfit }),
       );
     case "reset":

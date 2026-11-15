@@ -333,12 +333,6 @@ describe("GET /api/deals", () => {
       assert.deepEqual((await get("/api/deals?minProfit=36")).body.deals, []);
     });
   });
-
-  it("rejects an unknown show value", async () => {
-    await withApi(await seededDb(), async (get) => {
-      assert.equal((await get("/api/deals?show=everything")).status, 400);
-    });
-  });
 });
 
 describe("GET /api/settings", () => {

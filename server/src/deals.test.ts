@@ -135,7 +135,7 @@ function seed(hours: number): Db {
 }
 
 const find = (db: Db, extra: Partial<Parameters<typeof findDeals>[0]> = {}) =>
-  findDeals({ db, houseId: HOUSE, settings, show: "deals", minProfit: 1, limit: 100, ...extra });
+  findDeals({ db, houseId: HOUSE, settings, minProfit: 1, limit: 100, ...extra });
 
 describe("findDeals", () => {
   it("returns nothing, but says why, when there is too little history", () => {
@@ -181,13 +181,8 @@ describe("findDeals", () => {
     assert.equal(find(seed(168), { minProfit: 36 }).deals.length, 0);
   });
 
-  it("lists falling markets separately, never as deals", () => {
-    const db = seed(168);
-    assert.ok(!find(db).deals.some((d) => d.id === FALLING));
-
-    const falling = find(db, { show: "falling" });
-    assert.deepEqual(falling.deals.map((d) => d.id), [FALLING]);
-    assert.equal(falling.deals[0]?.trendRatio, 0.6);
+  it("never lists a falling market as a deal", () => {
+    assert.ok(!find(seed(168)).deals.some((d) => d.id === FALLING));
   });
 
   it("only looks at the last 7 days", () => {
