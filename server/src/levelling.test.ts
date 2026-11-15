@@ -446,6 +446,12 @@ describe("GET /api/levelling", () => {
       assert.equal(empty.body.helper, null);
       assert.equal((await get("?helperSkill=301")).status, 400);
 
+      // A plan can be left out; a trainer recipe cannot.
+      const skip = await get("?profession=blacksmithing&skip=16656,2660");
+      assert.deepEqual(skip.body.skipped, [{ spellId: 16656, name: "Radiant Boots" }]);
+      assert.deepEqual(smithing.body.skipped, []);
+      assert.equal((await get("?skip=abc")).status, 400);
+
       assert.equal((await get("?from=200&to=150")).status, 400);
       assert.equal((await get("?profession=fishing")).status, 400);
     } finally {

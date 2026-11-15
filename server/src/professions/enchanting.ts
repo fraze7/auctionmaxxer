@@ -3,6 +3,8 @@ import { r } from "./recipe.js";
 
 // Enchanting recipes for WoW: Forever, from Wowhead's spell list (14 Nov
 // 2026). Trainer recipes and the four starting recipes; they cover 1 to 300.
+// Plus six dropped formulas, bought on the auction house, that are cheaper
+// near the top.
 // An enchant makes no item, so its product is written as [0, 0]. The runed
 // rods needed to cast enchants are tools and are not added to the cost.
 
@@ -78,6 +80,14 @@ const RECIPES: Recipe[] = [
   r(13941, "Enchant Chest - Stats", [245, 265, 305], [0, 0], [[11178, 1], [11176, 1], [11175, 1]]),
   r(13943, "Enchant Weapon - Greater Striking", [245, 265, 305], [0, 0], [[11178, 1], [11175, 1]]),
   r(13948, "Enchant Gloves - Minor Haste", [250, 270, 310], [0, 0], [[11178, 1], [8153, 1]]),
+
+  // Dropped formulas, bought on the auction house.
+  r(20014, "Enchant Cloak - Greater Resistance", [265, 285, 325], [0, 0], [[16202, 1], [7077, 1], [7075, 1], [7079, 1], [7081, 1], [7972, 1]], true),
+  r(13945, "Enchant Bracer - Greater Stamina", [245, 265, 305], [0, 0], [[11176, 3]], true),
+  r(20020, "Enchant Boots - Greater Stamina", [260, 280, 320], [0, 0], [[11176, 6]], true),
+  r(20008, "Enchant Bracer - Greater Intellect", [255, 275, 315], [0, 0], [[16202, 2]], true),
+  r(20009, "Enchant Bracer - Superior Spirit", [270, 290, 330], [0, 0], [[16202, 2], [11176, 7]], true),
+  r(20024, "Enchant Boots - Spirit", [275, 295, 335], [0, 0], [[16203, 2], [16202, 1]], true),
 ];
 
 export const ENCHANTING: Profession = {
@@ -87,6 +97,12 @@ export const ENCHANTING: Profession = {
   // Sold by trade vendors; prices from Wowhead.
   vendorPrices: { [SIMPLE_WOOD]: 38, [STAR_WOOD]: 4500, [COPPER_ROD]: 124 },
   itemNames: {
+    7075: "Core of Earth",
+    7077: "Heart of Fire",
+    7079: "Globe of Water",
+    7081: "Breath of Wind",
+    7972: "Ichor of Undeath",
+    16203: "Greater Eternal Essence",
     1210: "Shadowgem",
     [SIMPLE_WOOD]: "Simple Wood",
     5500: "Iridescent Pearl",

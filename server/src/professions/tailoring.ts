@@ -4,7 +4,8 @@ import { r } from "./recipe.js";
 // Tailoring recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
 // Trainer recipes and the four starting recipes, plus nine patterns sold by
 // vendors with no reputation needed (checked in game): trainer recipes stop
-// giving points at 255. Left out: drops, quest and reputation patterns,
+// giving points at 255. Also seven dropped patterns for the top of the route,
+// bought on the auction house. Left out: quest and reputation patterns,
 // holiday clothes, Mooncloth (cooldown), and the Slippers and Faction Banner
 // (never give skill).
 
@@ -124,6 +125,15 @@ const RECIPES: Recipe[] = [
   r(18423, "Runecloth Boots", [235, 250, 280], [13864, 1], [[RUNECLOTH, 4], [14227, 2], [8170, 4], [RUNE_THREAD, 1]], true),
   r(1257487, "Runecloth Cuffs", [250, 265, 295], [254123, 1], [[RUNECLOTH, 5], [14227, 1], [RUNE_THREAD, 1]], true),
   r(22902, "Mooncloth Robe", [275, 290, 320], [18486, 1], [[RUNECLOTH, 6], [14342, 4], [13926, 2], [RUNE_THREAD, 2]], true),
+
+  // Dropped patterns, bought on the auction house.
+  r(18440, "Mooncloth Leggings", [245, 270, 300], [14137, 1], [[14048, 6], [14342, 4], [14341, 1]], true),
+  r(18444, "Runecloth Headband", [250, 265, 295], [13866, 1], [[14048, 4], [14227, 2], [14341, 1]], true),
+  r(18445, "Mooncloth Bag", [255, 270, 300], [14155, 1], [[14048, 4], [14342, 1], [14341, 1], [249431, 10], [249430, 2], [249409, 4]], true),
+  r(18449, "Runecloth Shoulders", [260, 275, 305], [13867, 1], [[14048, 7], [14227, 2], [8170, 4], [14341, 1]], true),
+  r(27660, "Big Bag of Enchantment", [255, 270, 300], [22249, 1], [[14048, 6], [14344, 4], [12810, 4], [14227, 4]], true),
+  r(1257486, "Earthenweave Vest", [250, 265, 295], [254121, 1], [[14048, 8], [7076, 1], [14341, 1]], true),
+  r(1257494, "Earthenweave Crown", [260, 275, 305], [254137, 1], [[14048, 6], [7076, 3], [14341, 1]], true),
 ];
 
 export const TAILORING: Profession = {
@@ -146,6 +156,10 @@ export const TAILORING: Profession = {
     [ORANGE_DYE]: 1000,
   },
   itemNames: {
+    7076: "Essence of Earth",
+    12810: "Enchanted Leather",
+    14344: "Large Brilliant Shard",
+    249431: "Viridian Dye",
     118: "Minor Healing Potion",
     1529: "Jade",
     2318: "Light Leather",

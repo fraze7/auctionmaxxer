@@ -77,6 +77,8 @@ const LevellingQuery = z
     from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
     helperSkill: z.coerce.number().int().min(0).max(MAX_SKILL).default(0),
+    // Spell IDs of plans to leave out, comma-separated.
+    skip: z.string().regex(/^\d+(,\d+){0,49}$/).optional(),
   })
   .refine((query) => query.from < query.to, { path: ["to"], message: "must be above from" });
 
@@ -418,7 +420,11 @@ export function createApp(options: ApiOptions): Express {
     const query = parse(LevellingQuery, req.query);
     const houseId = query.house ?? defaultHouseId;
     const base: Profession = PROFESSIONS[query.profession];
-    const profession = withHelper(base, query.helperSkill);
+    // Only bought plans can be skipped: the owner may not have them.
+    const wanted = new Set((query.skip ?? "").split(",").map(Number));
+    const skipped = base.recipes.filter((recipe) => recipe.plan && wanted.has(recipe.spellId));
+    const kept = { ...base, recipes: base.recipes.filter((recipe) => !skipped.includes(recipe)) };
+    const profession = withHelper(kept, query.helperSkill);
     const { takenAt, market } = loadMarket(db, houseId, profession);
 
     res.json({
@@ -427,6 +433,7 @@ export function createApp(options: ApiOptions): Express {
       profession: { id: profession.id, name: profession.name },
       helper: base.helper ? { id: base.helper.id, name: base.helper.name, skill: query.helperSkill } : null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
+      skipped: skipped.map((recipe) => ({ spellId: recipe.spellId, name: recipe.name })),
       ...planLevelling(profession, market, query.from, query.to),
     });
   });

@@ -5,7 +5,8 @@ import { r } from "./recipe.js";
 // 2026). Trainer recipes and the six starting recipes, plus two patterns sold
 // by vendors with no reputation needed (checked in game): trainer recipes stop
 // giving points at 265. Left out: anything needing a specialisation (Chimeric
-// Gloves need Tribal), drops, quest and reputation patterns.
+// Gloves need Tribal), quest and reputation patterns. Nine dropped patterns for
+// the top of the route are included; they are bought on the auction house.
 
 const COARSE_THREAD = 2320;
 const FINE_THREAD = 2321;
@@ -107,6 +108,17 @@ const RECIPES: Recipe[] = [
   // Vendor patterns.
   r(19049, "Wicked Leather Gauntlets", [235, 255, 275], [15083, 1], [[RUGGED, 8], [BLACK_DYE, 1], [RUNE_THREAD, 1]], true),
   r(19082, "Runic Leather Headband", [265, 285, 305], [15094, 1], [[RUGGED, 14], [14047, 10], [RUNE_THREAD, 1]], true),
+
+  // Dropped patterns, bought on the auction house.
+  r(19065, "Runic Leather Bracers", [250, 270, 290], [15092, 1], [[8170, 6], [7971, 1], [14047, 6], [14341, 1]], true),
+  r(1255028, "Wicked Leather Boots", [260, 280, 300], [252479, 1], [[8170, 10], [14341, 1], [2325, 1]], true),
+  r(1255025, "Tooled Leather Crown", [265, 285, 305], [252555, 1], [[8170, 14], [14341, 1], [6261, 1]], true),
+  r(1255022, "Tooled Leather Bracers", [270, 290, 310], [252557, 1], [[8170, 10], [14341, 1], [6261, 1]], true),
+  r(1255021, "Blue Suede Belt", [270, 290, 310], [252481, 1], [[8170, 14], [14341, 1], [6260, 2]], true),
+  r(1255019, "Blue Suede Bracers", [275, 295, 315], [252559, 1], [[8170, 10], [14341, 1], [6260, 1]], true),
+  r(1255017, "Blue Suede Hat", [280, 300, 320], [252482, 1], [[8170, 16], [14341, 1], [6260, 4]], true),
+  r(1254972, "Supple Scorpid Sabatons", [280, 300, 320], [252601, 1], [[8170, 20], [15408, 10], [14341, 1]], true),
+  r(1254971, "Charged Scorpid Boots", [280, 300, 320], [252602, 1], [[8170, 12], [15408, 14], [14341, 1], [7069, 2]], true),
 ];
 
 export const LEATHERWORKING: Profession = {
@@ -126,6 +138,9 @@ export const LEATHERWORKING: Profession = {
     [SALT]: 50,
   },
   itemNames: {
+    6260: "Blue Dye",
+    6261: "Orange Dye",
+    15408: "Heavy Scorpid Scale",
     783: "Light Hide",
     1529: "Jade",
     [LIGHT]: "Light Leather",

@@ -31,9 +31,12 @@ export function LevellingPage() {
   const canStartFromMine = mySkill !== undefined && mySkill > 1 && mySkill < 300
   const from = canStartFromMine && whole !== '1' ? mySkill : 1
 
+  // Plans to leave out of the route, as spell IDs.
+  const [skip] = useUrlParam('skip')
+
   const levelling = useQuery({
-    queryKey: ['levelling', profession, helperSkill, from],
-    queryFn: () => levellingApi.get({ profession, helperSkill, from }),
+    queryKey: ['levelling', profession, helperSkill, from, skip],
+    queryFn: () => levellingApi.get({ profession, helperSkill, from, ...(/^\d+(,\d+)*$/.test(skip) ? { skip } : {}) }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
@@ -118,6 +121,54 @@ export function LevellingPage() {
   )
 }
 
+// The plans left out of the route live in the URL as ?skip=id,id.
+function useSkippedPlans(): [number[], (ids: number[]) => void] {
+  const [skip, setSkip] = useUrlParam('skip')
+  const ids = skip
+    .split(',')
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0)
+  return [ids, (next) => setSkip(next.join(','))]
+}
+
+// For a plan you do not have or that costs too much: plans the route again without it.
+function SkipPlan({ spellId }: { spellId: number }) {
+  const [ids, setIds] = useSkippedPlans()
+  return (
+    <button
+      type="button"
+      onClick={() => setIds([...ids, spellId])}
+      title="Plan the route again without this plan"
+      className="ml-1.5 text-[11px] text-zinc-500 underline decoration-dotted hover:text-zinc-200"
+    >
+      skip
+    </button>
+  )
+}
+
+function SkippedPlans({ plan }: { plan: LevellingResponse }) {
+  const [ids, setIds] = useSkippedPlans()
+  if (plan.skipped.length === 0) return null
+  return (
+    <p className="text-sm text-zinc-400">
+      Left out:{' '}
+      {plan.skipped.map((recipe, index) => (
+        <span key={recipe.spellId}>
+          {index > 0 && ', '}
+          <span className="text-zinc-200">{recipe.name}</span>{' '}
+          <button
+            type="button"
+            onClick={() => setIds(ids.filter((id) => id !== recipe.spellId))}
+            className="text-xs text-zinc-500 underline decoration-dotted hover:text-zinc-200"
+          >
+            put back
+          </button>
+        </span>
+      ))}
+    </p>
+  )
+}
+
 // The last stretch of a route is often most of its cost. Where a third of the
 // total falls within the final LAST_POINTS, say what stopping short saves.
 const LAST_POINTS = 25
@@ -185,6 +236,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
       </div>
 
       <SteepEnding plan={plan} />
+      <SkippedPlans plan={plan} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-100">Steps</h2>
@@ -243,7 +295,10 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
           {step.recipeName}
         </a>
         {step.plan && (
-          <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+          <>
+            <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+            <SkipPlan spellId={step.spellId} />
+          </>
         )}
       </span>
     ),
