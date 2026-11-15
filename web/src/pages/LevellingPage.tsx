@@ -118,6 +118,35 @@ export function LevellingPage() {
   )
 }
 
+// The last stretch of a route is often most of its cost. Where the final
+// LAST_POINTS hold at least a third of the total, say what stopping short saves.
+const LAST_POINTS = 25
+const STEEP_SHARE = 1 / 3
+
+function SteepEnding({ plan }: { plan: LevellingResponse }) {
+  // Of the steps starting in the last stretch, the one with the dearest points after it.
+  let stop: { skill: number; tail: number } | undefined
+  let tail = 0
+  for (const step of [...plan.steps].reverse()) {
+    if (step.from < plan.reached - LAST_POINTS || step.from <= plan.from) break
+    tail += step.cost
+    const perPoint = tail / (plan.reached - step.from)
+    if (!stop || perPoint > stop.tail / (plan.reached - stop.skill)) stop = { skill: step.from, tail }
+  }
+  if (!stop || stop.tail < plan.totalCost * STEEP_SHARE) return null
+
+  return (
+    <p className="text-sm text-zinc-400">
+      The last {plan.reached - stop.skill} points cost <PriceTag copper={stop.tail} />. Stopping at skill{' '}
+      <span className="tabular text-zinc-100">{stop.skill}</span> costs{' '}
+      <span className="text-zinc-100">
+        <PriceTag copper={plan.totalCost - stop.tail} />
+      </span>
+      .
+    </p>
+  )
+}
+
 function Plan({ plan }: { plan: LevellingResponse }) {
   if (plan.steps.length === 0) {
     return (
@@ -150,6 +179,8 @@ function Plan({ plan }: { plan: LevellingResponse }) {
           </Tile>
         )}
       </div>
+
+      <SteepEnding plan={plan} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-100">Steps</h2>
