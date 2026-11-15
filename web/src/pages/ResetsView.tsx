@@ -4,13 +4,14 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { SellRate } from '../components/SellRate.tsx'
+import { ShowToggle } from '../components/ShowToggle.tsx'
 import { SELL_RATE_HINT, stockToSell } from '../sellRate.ts'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // Items where buying the cheapest listings leaves a much higher price.
-// Worked out on the server (server/src/resets.ts).
+// Shown on the Deals tab; worked out on the server (server/src/resets.ts).
 
 const RISES = [
   { value: '1.25', label: '+25%' },
@@ -20,7 +21,7 @@ const RISES = [
 ]
 const DEFAULT_BUDGET_GOLD = 50
 
-export function ResetsPage() {
+export function ResetsView() {
   const [budgetText, setBudgetText] = useUrlParam('budget')
   const budget = toWholeNumber(budgetText) || DEFAULT_BUDGET_GOLD
   const [riseText, setRiseText] = useUrlParam('rise', '1.5')
@@ -44,6 +45,7 @@ export function ResetsPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
+          <ShowToggle />
           <label className="block text-xs text-zinc-400">
             Budget (gold)
             <input
@@ -97,9 +99,10 @@ export function ResetsPage() {
             Profit assumes every unit you buy sells just under the new price, after the auction house keeps{' '}
             {Math.round(resets.data.ahCut * 100)}%. That is the risk: others can undercut you or list more, and the site
             cannot see how fast an item sells. The new price is never more than one and a half times the normal price
-            (the 7-day median of the cheapest listing), and items with under 12 hours of history are left out. &ldquo;Sells&rdquo; is a rough estimate from cheap
-            listings disappearing between hourly snapshots (fast is 100 or more a day, steady 10 or more, slow fewer):
-            it misses quick sales and counts cancelled listings and other people&rsquo;s buyouts as sales.
+            (the 7-day median of the cheapest listing), and items with under 12 hours of history are left out.
+            &ldquo;Sells&rdquo; is a rough estimate from cheap listings disappearing between hourly snapshots (fast is
+            100 or more a day, steady 10 or more, slow fewer): it misses quick sales and counts cancelled listings and
+            other people&rsquo;s buyouts as sales.
           </p>
         </>
       )}

@@ -4,7 +4,9 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { SellRate } from '../components/SellRate.tsx'
+import { ShowToggle, useView } from '../components/ShowToggle.tsx'
 import { SELL_RATE_HINT } from '../sellRate.ts'
+import { ResetsView } from './ResetsView.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber, formatTrend } from '../format.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
@@ -99,8 +101,12 @@ const columns: Column<Deal>[] = [
 ]
 
 export function DealsPage() {
+  return useView() === 'resets' ? <ResetsView /> : <DealsView />
+}
+
+function DealsView() {
   // Filters live in the URL, so views can be bookmarked.
-  const [show, setShow] = useUrlParam('show', 'deals')
+  const show = useView()
   const [minProfitText, setMinProfitText] = useUrlParam('minProfit')
   const [maxQtyText, setMaxQtyText] = useUrlParam('maxQty')
 
@@ -132,14 +138,7 @@ export function DealsPage() {
           </p>
         </div>
 
-        <div className="flex rounded-md border border-zinc-700 text-sm">
-          <Toggle active={params.show === 'deals'} onClick={() => setShow('deals')}>
-            Deals
-          </Toggle>
-          <Toggle active={params.show === 'falling'} onClick={() => setShow('falling')}>
-            Falling
-          </Toggle>
-        </div>
+        <ShowToggle />
 
         {params.show === 'deals' && (
           <NumberField
@@ -180,8 +179,8 @@ function Results({ data }: { data: DealsResponse }) {
     return (
       <EmptyState title={`Collecting history: ${snapshots} of ${needed} snapshots`}>
         <p>
-          A deal is judged against an item's own recent prices, so the list stays empty until there are {needed}{' '}
-          hourly snapshots. About {needed - snapshots} more hours to go.
+          A deal is judged against an item's own recent prices, so the list stays empty until there are {needed} hourly
+          snapshots. About {needed - snapshots} more hours to go.
         </p>
         <div className="mx-auto mt-4 h-2 max-w-sm overflow-hidden rounded-full bg-zinc-800">
           <div className="h-full bg-amber-500" style={{ width: `${percent}%` }} />
@@ -208,22 +207,6 @@ function Results({ data }: { data: DealsResponse }) {
       rowKey={(d) => d.id}
       initialSort={data.show === 'falling' ? { key: 'trend', direction: 'asc' } : { key: 'total', direction: 'desc' }}
     />
-  )
-}
-
-function Toggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
-        active ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
-      ].join(' ')}
-    >
-      {children}
-    </button>
   )
 }
 

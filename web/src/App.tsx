@@ -9,7 +9,6 @@ import { ItemsPage } from './pages/ItemsPage.tsx'
 import { LevellingPage } from './pages/LevellingPage.tsx'
 import { MoversPage } from './pages/MoversPage.tsx'
 import { RecordPage } from './pages/RecordPage.tsx'
-import { ResetsPage } from './pages/ResetsPage.tsx'
 import { VendorPage } from './pages/VendorPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
 import { useWatchlist } from './watchlist.tsx'
@@ -20,7 +19,6 @@ const GROUPS = [
     name: 'Buy now',
     tabs: [
       { to: '/', name: 'Deals' },
-      { to: '/resets', name: 'Resets' },
       { to: '/vendor', name: 'Vendor' },
       { to: '/record', name: 'Record' },
     ],
@@ -99,7 +97,7 @@ export default function App() {
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/favor" element={<FavorPage />} />
           <Route path="/movers" element={<MoversPage />} />
-          <Route path="/resets" element={<ResetsPage />} />
+          <Route path="/resets" element={<Navigate to="/?show=resets" replace />} />
           <Route path="/vendor" element={<VendorPage />} />
           <Route path="/crafts" element={<CraftsPage />} />
           <Route path="/levelling" element={<LevellingPage />} />

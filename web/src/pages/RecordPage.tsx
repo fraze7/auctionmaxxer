@@ -19,7 +19,7 @@ export function RecordPage() {
       <div>
         <h1 className="text-lg font-semibold text-zinc-100">Track record</h1>
         <p className="text-sm text-zinc-500">
-          What the Deals and Resets tabs recommended, and what the price was a day later.
+          What the Deals tab recommended, as deals and as resets, and what the price was a day later.
         </p>
       </div>
 
