@@ -6,6 +6,7 @@ import { sendPendingAlerts } from "./notify.js";
 import { recordRecommendations } from "./record.js";
 import { pruneOldLevels } from "./retention.js";
 import { loadSettings } from "./settings.js";
+import { checkTabAlerts } from "./tabAlerts.js";
 import { checkWatches } from "./watchlist.js";
 
 // One full run: collect, check the watchlist, send alerts, look up item names.
@@ -58,6 +59,13 @@ export async function runJob(options: JobOptions): Promise<boolean> {
       if (saved > 0) log(`Track record: saved ${saved} new pick${saved === 1 ? "" : "s"}`);
     } catch (err) {
       log(`Track record: saving failed (${err instanceof Error ? err.message : String(err)})`);
+    }
+
+    try {
+      const found = checkTabAlerts({ db, houseId, settings: loadSettings(db) });
+      if (found > 0) log(`Tab alerts: ${found} new alert${found === 1 ? "" : "s"}`);
+    } catch (err) {
+      log(`Tab alerts: checking failed (${err instanceof Error ? err.message : String(err)})`);
     }
   }
 

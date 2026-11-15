@@ -3,6 +3,7 @@ import type { Watch, WatchAlert } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
+import { RecentTabAlerts, TabAlertSettings } from '../components/TabAlerts.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatDateTime } from '../format.ts'
 import { RemoveButton, RuleText, useWatchlist, WatchStatus } from '../watchlist.tsx'
@@ -85,7 +86,7 @@ export function WatchlistPage() {
 
   if (watchlist.isPending) return <LoadingState />
   if (watchlist.isError) return <ErrorState error={watchlist.error} />
-  const { watches, alerts, discordConfigured } = watchlist.data
+  const { watches, alerts, discordConfigured, tabRules, tabAlerts } = watchlist.data
 
   return (
     <div className="space-y-6">
@@ -123,6 +124,8 @@ export function WatchlistPage() {
         />
       )}
 
+      <TabAlertSettings rules={tabRules} />
+
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-100">Recent alerts</h2>
         {alerts.length === 0 ? (
@@ -131,6 +134,8 @@ export function WatchlistPage() {
           <DataTable rows={alerts} columns={ALERT_COLUMNS} rowKey={(a) => a.id} />
         )}
       </section>
+
+      <RecentTabAlerts alerts={tabAlerts} />
     </div>
   )
 }

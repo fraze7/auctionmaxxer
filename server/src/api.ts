@@ -5,16 +5,12 @@ import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
-import { ALCHEMY } from "./professions/alchemy.js";
-import { BLACKSMITHING } from "./professions/blacksmithing.js";
-import { ENCHANTING } from "./professions/enchanting.js";
-import { ENGINEERING } from "./professions/engineering.js";
-import { LEATHERWORKING } from "./professions/leatherworking.js";
-import { TAILORING } from "./professions/tailoring.js";
 import { findMovers } from "./movers.js";
+import { PROFESSIONS } from "./professions/index.js";
 import { loadTrackRecord } from "./record.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
+import { deleteTabRule, listTabAlerts, listTabRules, saveTabRule, TAB_KINDS } from "./tabAlerts.js";
 import { findVendorDeals } from "./vendor.js";
 import { deleteWatch, listAlerts, listWatches, saveWatch } from "./watchlist.js";
 
@@ -73,7 +69,6 @@ const FavorQuery = z.object({
 
 const ItemParams = z.object({ id: positiveInt });
 
-const PROFESSIONS = { alchemy: ALCHEMY, blacksmithing: BLACKSMITHING, tailoring: TAILORING, leatherworking: LEATHERWORKING, engineering: ENGINEERING, enchanting: ENCHANTING } satisfies Record<string, Profession>;
 
 const LevellingQuery = z
   .object({
@@ -519,7 +514,30 @@ export function createApp(options: ApiOptions): Express {
       discordConfigured: options.discordConfigured ?? false,
       watches: listWatches(db, houseId),
       alerts: listAlerts(db, houseId),
+      tabRules: listTabRules(db, houseId),
+      tabAlerts: listTabAlerts(db, houseId),
     });
+  });
+
+  // POST /api/tab-alerts { kind, minProfit }  - turn a tab's alerts on, or change the amount
+  app.post("/api/tab-alerts", requireJson, jsonBody, (req, res) => {
+    const body = parse(
+      z.object({
+        house: houseParam,
+        kind: z.enum(TAB_KINDS),
+        minProfit: z.number().int().min(0).max(1_000_000_000),
+      }),
+      req.body,
+    );
+    saveTabRule(db, body.house ?? defaultHouseId, { kind: body.kind, minProfit: body.minProfit });
+    res.status(201).json({ kind: body.kind, minProfit: body.minProfit });
+  });
+
+  // DELETE /api/tab-alerts/:kind  - turn a tab's alerts off; past alerts are kept
+  app.delete("/api/tab-alerts/:kind", (req, res) => {
+    const { kind } = parse(z.object({ kind: z.enum(TAB_KINDS) }), req.params);
+    if (!deleteTabRule(db, defaultHouseId, kind)) throw new HttpError(404, `Alerts are not on for ${kind}`);
+    res.status(204).end();
   });
 
   // POST /api/watchlist { itemId, direction, threshold }  - add or update a rule

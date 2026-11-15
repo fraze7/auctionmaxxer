@@ -254,6 +254,27 @@ export interface Watchlist {
   discordConfigured: boolean
   watches: Watch[]
   alerts: WatchAlert[]
+  tabRules: TabRule[]
+  tabAlerts: TabAlert[]
+}
+
+export type TabKind = 'deal' | 'reset' | 'vendor' | 'craft'
+
+// Alerts are on for a tab when it has a rule.
+export interface TabRule {
+  kind: TabKind
+  minProfit: number
+}
+
+export interface TabAlert {
+  id: number
+  kind: TabKind
+  itemId: number
+  name: string | null
+  quality: string | null
+  profit: number
+  takenAt: number
+  notifiedAt: number | null
 }
 
 // For requests that change something. The server only accepts JSON bodies.
@@ -281,6 +302,11 @@ export const watchApi = {
   save: (rule: { itemId: number; direction: Direction; threshold: number }) =>
     send<Watch>('POST', '/api/watchlist', rule),
   remove: (id: number) => send<void>('DELETE', `/api/watchlist/${id}`),
+}
+
+export const tabAlertApi = {
+  save: (rule: TabRule) => send<TabRule>('POST', '/api/tab-alerts', rule),
+  remove: (kind: TabKind) => send<void>('DELETE', `/api/tab-alerts/${kind}`),
 }
 
 // --- Profession levelling ---
