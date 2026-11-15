@@ -3,6 +3,8 @@ import { api, type Deal, type DealsResponse, type Trend } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
+import { SellRate } from '../components/SellRate.tsx'
+import { SELL_RATE_HINT } from '../sellRate.ts'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber, formatTrend } from '../format.ts'
 import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
@@ -76,10 +78,10 @@ const columns: Column<Deal>[] = [
   },
   {
     key: 'soldPerDay',
-    header: 'Sells / day',
-    title: 'Estimate from cheap listings disappearing between hourly snapshots; a rough guide',
+    header: 'Sells',
+    title: SELL_RATE_HINT,
     align: 'right',
-    render: (d) => (d.soldPerDay === null ? '–' : `~${formatNumber(Math.round(d.soldPerDay))}`),
+    render: (d) => <SellRate soldPerDay={d.soldPerDay} />,
     sortValue: (d) => d.soldPerDay ?? -1,
   },
   {

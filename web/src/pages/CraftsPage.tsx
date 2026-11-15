@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { craftsApi, type Craft } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
+import { SellRate } from '../components/SellRate.tsx'
+import { SELL_RATE_HINT } from '../sellRate.ts'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { useSkills } from '../profile.ts'
@@ -124,8 +126,8 @@ export function CraftsPage() {
             more than it sells for, or at about a day&rsquo;s sales. The sale price is assumed to hold, which it will
             not if you flood the market. * means part of the cost is an estimate beyond the listings the site stores. Materials marked
             &ldquo;made&rdquo; are cheaper to craft from their own inputs than to buy. Only products sold in stacks are
-            tracked, so crafted gear is not listed. &ldquo;Sells / day&rdquo; is an estimate from cheap listings
-            disappearing between hourly snapshots; treat it as a rough guide.
+            tracked, so crafted gear is not listed. &ldquo;Sells&rdquo; is a rough estimate from cheap listings
+            disappearing between hourly snapshots: fast is 100 or more a day, steady 10 or more, slow fewer.
           </p>
         </>
       )}
@@ -254,9 +256,10 @@ const COLUMNS: Column<Craft>[] = [
   },
   {
     key: 'soldPerDay',
-    header: 'Sells / day',
+    header: 'Sells',
+    title: SELL_RATE_HINT,
     align: 'right',
-    render: (craft) => (craft.soldPerDay === null ? '–' : `~${formatNumber(Math.round(craft.soldPerDay))}`),
+    render: (craft) => <SellRate soldPerDay={craft.soldPerDay} />,
     sortValue: (craft) => craft.soldPerDay ?? -1,
   },
   {
