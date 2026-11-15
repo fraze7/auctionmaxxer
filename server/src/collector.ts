@@ -22,7 +22,15 @@ export interface CollectOptions {
 
 export type CollectResult =
   // 'empty' = the house had no commodity listings, which is not an error.
-  | { status: "ok" | "empty"; snapshotId: number; takenAt: number; listingCount: number; itemCount: number }
+  | {
+      status: "ok" | "empty";
+      snapshotId: number;
+      takenAt: number;
+      listingCount: number;
+      itemCount: number;
+      singleCount: number; // items sold one at a time that got a price
+      singlesError?: string; // those could not be stored; the commodities were
+    }
   // Nothing newer than what is stored; nothing written.
   | { status: "skipped"; lastTakenAt: number }
   // A 'failed' row was recorded.
@@ -45,7 +53,6 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
     }
 
     const summaries = summarizeCommodities(snapshot.commodities);
-    const singles = summarizeItems(snapshot.items);
     const status = snapshot.commodities.length === 0 ? "empty" : "ok";
 
     const insertSnapshot = db.prepare(`
@@ -63,11 +70,6 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
     `);
     // OR IGNORE: known items keep their row; new ones are queued as 'pending'.
     const queueItem = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen) VALUES (?, ?)");
-    const insertSingle = db.prepare(`
-      INSERT INTO item_prices (snapshot_id, item_id, min_buyout, median_buyout, listing_count)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const queueSingle = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen, kind) VALUES (?, ?, 'single')");
 
     // One transaction per snapshot: all or nothing, and much faster.
     const snapshotId = db.transaction(() => {
@@ -89,12 +91,30 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
         });
         queueItem.run(s.itemId, snapshot.takenAt);
       }
-      for (const s of singles) {
-        insertSingle.run(id, s.itemId, s.minBuyout, s.medianBuyout, s.listingCount);
-        queueSingle.run(s.itemId, snapshot.takenAt);
-      }
       return id;
     })();
+
+    // One-at-a-time listings are stored afterwards and on their own, so a
+    // problem with them can never cost the snapshot's commodity prices.
+    let singleCount = 0;
+    let singlesError: string | undefined;
+    try {
+      const singles = summarizeItems(snapshot.items);
+      const insertSingle = db.prepare(`
+        INSERT INTO item_prices (snapshot_id, item_id, min_buyout, median_buyout, listing_count)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const queueSingle = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen, kind) VALUES (?, ?, 'single')");
+      db.transaction(() => {
+        for (const s of singles) {
+          insertSingle.run(snapshotId, s.itemId, s.minBuyout, s.medianBuyout, s.listingCount);
+          queueSingle.run(s.itemId, snapshot.takenAt);
+        }
+      })();
+      singleCount = singles.length;
+    } catch (err) {
+      singlesError = errorMessage(err).slice(0, MAX_ERROR_LENGTH);
+    }
 
     return {
       status,
@@ -102,6 +122,8 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
       takenAt: snapshot.takenAt,
       listingCount: snapshot.commodities.length,
       itemCount: summaries.length,
+      singleCount,
+      ...(singlesError === undefined ? {} : { singlesError }),
     };
   } catch (err) {
     const error = errorMessage(err).slice(0, MAX_ERROR_LENGTH);

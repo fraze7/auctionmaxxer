@@ -100,6 +100,17 @@ describe("collectOnce", () => {
     assert.deepEqual(pending, { status: "pending", name: null });
   });
 
+  it("still stores the commodities when single items cannot be stored", async () => {
+    const db = openDb(":memory:");
+    db.exec("DROP TABLE item_prices");
+    const result = await collect(db, new MockSource());
+
+    assert.equal(result.status, "ok");
+    assert.ok(result.status === "ok" && result.singlesError?.includes("item_prices"));
+    assert.ok(count(db, "commodity_prices") > 0);
+    assert.equal(count(db, "items"), count(db, "commodity_prices"));
+  });
+
   it("skips a snapshot it already has", async () => {
     const db = openDb(":memory:");
     const source = new MockSource();

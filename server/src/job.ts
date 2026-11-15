@@ -33,8 +33,9 @@ export async function runJob(options: JobOptions): Promise<boolean> {
     case "empty":
       log(
         `Stored snapshot #${result.snapshotId} (${result.status}), taken ${isoTime(result.takenAt)}:`,
-        `${result.listingCount} listings -> ${result.itemCount} items`,
+        `${result.listingCount} listings -> ${result.itemCount} items, plus ${result.singleCount} single items`,
       );
+      if (result.singlesError) log(`Single items were NOT stored (commodities were): ${result.singlesError}`);
       break;
     case "skipped":
       if (options.logSkipped ?? true) {
