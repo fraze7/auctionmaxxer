@@ -83,7 +83,19 @@ describe("collectOnce", () => {
     assert.equal(cheapest.quantity, cheapest.qty_at_min);
 
     // Every item seen is queued for a name lookup.
-    assert.equal(count(db, "items"), count(db, "commodity_prices"));
+    assert.equal(count(db, "items"), count(db, "commodity_prices") + count(db, "item_prices"));
+
+    // One-at-a-time listings get a price per item and are queued as 'single'.
+    assert.ok(count(db, "item_prices") > 0);
+    const single = db
+      .prepare<[], { kind: string; min_buyout: number; median_buyout: number; listing_count: number }>(`
+        SELECT i.kind, p.min_buyout, p.median_buyout, p.listing_count
+        FROM item_prices p JOIN items i USING (item_id)
+        ORDER BY p.listing_count DESC LIMIT 1
+      `)
+      .get()!;
+    assert.equal(single.kind, "single");
+    assert.ok(single.min_buyout > 0 && single.median_buyout >= single.min_buyout && single.listing_count >= 1);
     const pending = db.prepare("SELECT status, name FROM items WHERE item_id = ?").get(PEACEBLOOM);
     assert.deepEqual(pending, { status: "pending", name: null });
   });

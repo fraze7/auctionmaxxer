@@ -1,4 +1,4 @@
-import type { CommodityListing } from "./types.js";
+import type { CommodityListing, ItemListing } from "./types.js";
 
 // Turns a snapshot's raw commodity listings into one summary per item.
 // Pure functions: no database, network or clock.
@@ -45,11 +45,7 @@ export function summarizeCommodities(
     .map(([itemId, group]) => summarizeItem(itemId, group, maxLevels));
 }
 
-function summarizeItem(
-  itemId: number,
-  group: readonly CommodityListing[],
-  maxLevels: number,
-): CommoditySummary {
+function summarizeItem(itemId: number, group: readonly CommodityListing[], maxLevels: number): CommoditySummary {
   // Merge listings at the same price into one level, cheapest first.
   const qtyByPrice = new Map<number, number>();
   for (const listing of group) {
@@ -85,4 +81,35 @@ function weightedMedian(levels: readonly PriceLevel[], totalQuantity: number): n
     if (unitsSeen >= middleUnit) return level.unitPrice;
   }
   throw new Error("weightedMedian: totalQuantity is larger than the levels' sum");
+}
+
+export interface ItemSummary {
+  itemId: number;
+  minBuyout: number; // copper
+  medianBuyout: number;
+  listingCount: number; // listings with a buyout
+}
+
+// One entry per item ID for listings sold one at a time. Bid-only listings
+// are left out. Variants of an item (random enchants) share its ID.
+export function summarizeItems(listings: readonly ItemListing[]): ItemSummary[] {
+  const byItem = new Map<number, number[]>();
+  for (const listing of listings) {
+    if (!listing.buyout) continue;
+    const price = Math.ceil(listing.buyout / listing.quantity);
+    const group = byItem.get(listing.item.id);
+    if (group) group.push(price);
+    else byItem.set(listing.item.id, [price]);
+  }
+  return [...byItem]
+    .sort(([a], [b]) => a - b)
+    .map(([itemId, prices]) => {
+      prices.sort((a, b) => a - b);
+      return {
+        itemId,
+        minBuyout: prices[0]!,
+        medianBuyout: prices[prices.length >> 1]!,
+        listingCount: prices.length,
+      };
+    });
 }

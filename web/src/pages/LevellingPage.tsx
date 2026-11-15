@@ -121,6 +121,32 @@ export function LevellingPage() {
   )
 }
 
+// What the route's bought plans add, counting each plan once.
+function PlanCosts({ plan }: { plan: LevellingResponse }) {
+  const plans = new Map(plan.steps.filter((step) => step.plan).map((step) => [step.spellId, step.planItem]))
+  if (plans.size === 0) return null
+  const priced = [...plans.values()].filter((item) => item?.price != null)
+  const cost = priced.reduce((sum, item) => sum + (item?.price ?? 0), 0)
+  const unknown = plans.size - priced.length
+  return (
+    <p className="text-sm text-zinc-400">
+      {priced.length > 0 ? (
+        <>
+          The {priced.length === 1 ? 'plan' : `${priced.length} plans`} on sale for this route cost{' '}
+          <span className="text-zinc-100">
+            <PriceTag copper={cost} />
+          </span>{' '}
+          at their cheapest listings, on top of the materials.
+        </>
+      ) : (
+        'None of the plans on this route has a price yet.'
+      )}
+      {unknown > 0 &&
+        ` ${unknown} ${unknown === 1 ? 'plan has' : 'plans have'} no listing: sold by a vendor, from a quest, or not on the auction house right now.`}
+    </p>
+  )
+}
+
 // The plans left out of the route live in the URL as ?skip=id,id.
 function useSkippedPlans(): [number[], (ids: number[]) => void] {
   const [skip, setSkip] = useUrlParam('skip')
@@ -237,6 +263,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
 
       <SteepEnding plan={plan} />
       <SkippedPlans plan={plan} />
+      <PlanCosts plan={plan} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-100">Steps</h2>
@@ -298,6 +325,17 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
           <>
             <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
             <SkipPlan spellId={step.spellId} />
+            {step.planItem && (
+              <span className="block text-xs text-zinc-500">
+                {step.planItem.price === null ? (
+                  'plan not on the auction house right now'
+                ) : (
+                  <>
+                    plan from <PriceTag copper={step.planItem.price} /> ({formatNumber(step.planItem.listed)} listed)
+                  </>
+                )}
+              </span>
+            )}
           </>
         )}
       </span>

@@ -1,9 +1,9 @@
-import { summarizeCommodities } from "./aggregate.js";
+import { summarizeCommodities, summarizeItems } from "./aggregate.js";
 import type { DataSource } from "./dataSource.js";
 import type { Db } from "./db.js";
 
 // One collector run: fetch a house's latest snapshot, summarise and store it.
-// Commodities only for now. A bad fetch never throws: it is recorded as a
+// Commodities, plus a price per item for one-at-a-time listings. A bad fetch never throws: it is recorded as a
 // 'failed' row so gaps in the history are visible.
 
 const KIND = "commodities";
@@ -45,6 +45,7 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
     }
 
     const summaries = summarizeCommodities(snapshot.commodities);
+    const singles = summarizeItems(snapshot.items);
     const status = snapshot.commodities.length === 0 ? "empty" : "ok";
 
     const insertSnapshot = db.prepare(`
@@ -62,6 +63,11 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
     `);
     // OR IGNORE: known items keep their row; new ones are queued as 'pending'.
     const queueItem = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen) VALUES (?, ?)");
+    const insertSingle = db.prepare(`
+      INSERT INTO item_prices (snapshot_id, item_id, min_buyout, median_buyout, listing_count)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const queueSingle = db.prepare("INSERT OR IGNORE INTO items (item_id, first_seen, kind) VALUES (?, ?, 'single')");
 
     // One transaction per snapshot: all or nothing, and much faster.
     const snapshotId = db.transaction(() => {
@@ -83,6 +89,10 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
         });
         queueItem.run(s.itemId, snapshot.takenAt);
       }
+      for (const s of singles) {
+        insertSingle.run(id, s.itemId, s.minBuyout, s.medianBuyout, s.listingCount);
+        queueSingle.run(s.itemId, snapshot.takenAt);
+      }
       return id;
     })();
 
@@ -96,10 +106,12 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
   } catch (err) {
     const error = errorMessage(err).slice(0, MAX_ERROR_LENGTH);
     const { lastInsertRowid } = db
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO snapshots (ruleset_id, house_id, kind, fetched_at, status, error)
         VALUES (?, ?, ?, ?, 'failed', ?)
-      `)
+      `,
+      )
       .run(rulesetId, houseId, KIND, fetchedAt, error);
     return { status: "failed", snapshotId: Number(lastInsertRowid), error };
   }
@@ -108,11 +120,13 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
 // When the newest stored snapshot was taken, or null. Failed rows have no taken_at.
 function latestTakenAt(db: Db, houseId: number): number | null {
   const row = db
-    .prepare<[number, string], { takenAt: number | null }>(`
+    .prepare<[number, string], { takenAt: number | null }>(
+      `
       SELECT MAX(taken_at) AS takenAt
       FROM snapshots
       WHERE house_id = ? AND kind = ? AND status IN ('ok', 'empty')
-    `)
+    `,
+    )
     .get(houseId, KIND);
   return row?.takenAt ?? null;
 }

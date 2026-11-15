@@ -9,6 +9,7 @@ import { PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
 import { hourlyPattern } from "./hours.js";
+import { planPrices } from "./plans.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
 import { deleteTabRule, listTabAlerts, listTabRules, saveTabRule, TAB_KINDS } from "./tabAlerts.js";
@@ -167,7 +168,7 @@ export function createApp(options: ApiOptions): Express {
 
   // LEFT JOIN: items not listed right now still appear, with price: null.
   const SEARCH_WHERE = `
-    @q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q
+    i.kind = 'commodity' AND (@q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q)
   `;
   const searchItems = db.prepare<
     { q: string; pattern: string; snapshotId: number; limit: number; offset: number },
@@ -426,6 +427,13 @@ export function createApp(options: ApiOptions): Express {
     const kept = { ...base, recipes: base.recipes.filter((recipe) => !skipped.includes(recipe)) };
     const profession = withHelper(kept, query.helperSkill);
     const { takenAt, market } = loadMarket(db, houseId, profession);
+    const plan = planLevelling(profession, market, query.from, query.to);
+    // What each bought plan on the route costs, where the auction house has it.
+    const plans = planPrices(
+      db,
+      houseId,
+      plan.steps.filter((step) => step.plan).map((step) => step.recipeName),
+    );
 
     res.json({
       house: houseId,
@@ -434,7 +442,8 @@ export function createApp(options: ApiOptions): Express {
       helper: base.helper ? { id: base.helper.id, name: base.helper.name, skill: query.helperSkill } : null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       skipped: skipped.map((recipe) => ({ spellId: recipe.spellId, name: recipe.name })),
-      ...planLevelling(profession, market, query.from, query.to),
+      ...plan,
+      steps: plan.steps.map((step) => ({ ...step, planItem: plans.get(step.recipeName) ?? null })),
     });
   });
 

@@ -346,6 +346,8 @@ export interface LevelStep {
   materials: LevelMaterial[]
   cost: number
   stops: Array<{ skill: number; cost: number }> // the step's cost if it ended early at `skill`
+  // The plan's item on the auction house; null = never seen there. price null = none listed now.
+  planItem: { itemId: number; price: number | null; listed: number } | null
 }
 
 export interface LevellingResponse {

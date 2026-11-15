@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { summarizeCommodities } from "./aggregate.js";
+import { summarizeCommodities, summarizeItems } from "./aggregate.js";
 import { MockSource } from "./mockSource.js";
 import type { CommodityListing } from "./types.js";
 
@@ -158,5 +158,30 @@ describe("summarizeCommodities on the saved fixture", () => {
       assert.ok(s.minPrice > 0 && s.medianPrice >= s.minPrice, `prices for item ${s.itemId}`);
       assert.ok(s.qtyAtMin >= 1 && s.qtyAtMin <= s.quantity, `quantities for item ${s.itemId}`);
     }
+  });
+});
+
+describe("summarizeItems", () => {
+  const listing = (id: number, itemId: number, buyout?: number) => ({
+    id,
+    item: { id: itemId },
+    quantity: 1,
+    ...(buyout === undefined ? {} : { buyout }),
+    time_left: "LONG" as const,
+  });
+
+  it("gives the cheapest and middle buyout per item, ignoring bid-only listings", () => {
+    const summaries = summarizeItems([
+      listing(1, 20, 500),
+      listing(2, 10, 900),
+      listing(3, 20, 300),
+      listing(4, 20, 9000),
+      listing(5, 20), // bid only
+      listing(6, 30), // bid only: no row at all
+    ]);
+    assert.deepEqual(summaries, [
+      { itemId: 10, minBuyout: 900, medianBuyout: 900, listingCount: 1 },
+      { itemId: 20, minBuyout: 300, medianBuyout: 500, listingCount: 3 },
+    ]);
   });
 });
