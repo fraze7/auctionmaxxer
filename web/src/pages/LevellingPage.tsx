@@ -263,7 +263,17 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
             {material.via && (
               <span className="text-zinc-500">
                 {' '}
-                (for {formatNumber(material.via.quantity)} {material.via.name})
+                (for {formatNumber(material.via.quantity)} {material.via.name}
+                {/* The saving is for the whole reagent, so it shows once, on its first input. */}
+                {step.materials[index - 1]?.via?.name !== material.via.name &&
+                  (material.via.saves === null ? (
+                    ', too few on sale to buy'
+                  ) : (
+                    <>
+                      , <PriceTag copper={material.via.saves} /> cheaper than buying them
+                    </>
+                  ))}
+                )
               </span>
             )}
           </span>

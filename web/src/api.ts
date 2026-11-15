@@ -105,8 +105,7 @@ export const api = {
   status: () => get<Status>('/api/status'),
   settings: () => get<Settings>('/api/settings'),
   items: (params: { q?: string; limit?: number; offset?: number }) => get<ItemSearch>('/api/items', params),
-  deals: (params: { show?: string; minProfit?: number; maxQty?: number }) =>
-    get<DealsResponse>('/api/deals', params),
+  deals: (params: { show?: string; minProfit?: number; maxQty?: number }) => get<DealsResponse>('/api/deals', params),
 }
 
 // --- One item ---
@@ -332,7 +331,8 @@ export interface LevelMaterial {
   cost: number
   vendor: boolean
   estimated: boolean // priced partly beyond the stored order book
-  via?: { name: string; quantity: number } // bought to craft this reagent
+  // Bought to craft this reagent. `saves` is against buying the reagent itself; null = too little on sale.
+  via?: { name: string; quantity: number; saves: number | null }
 }
 
 export interface LevelStep {

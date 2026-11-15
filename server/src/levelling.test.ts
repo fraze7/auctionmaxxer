@@ -147,7 +147,7 @@ describe("planLevelling", () => {
       plan.steps[1]?.materials.map((m) => [m.name, m.quantity, m.crafted, m.via]),
       [
         ["Oil", 18, 18, undefined],
-        ["Herb A", 6, 0, { name: "Oil", quantity: 12 }],
+        ["Herb A", 6, 0, { name: "Oil", quantity: 12, saves: 12 * 100 - 60 }],
       ],
     );
     assert.deepEqual(
@@ -283,7 +283,7 @@ describe("planLevelling", () => {
       assert.deepEqual(
         plan.steps[0]?.materials.map((m) => [m.name, m.quantity, m.via]),
         [
-          ["Root", 9, { name: "Herb A", quantity: 9 }],
+          ["Root", 9, { name: "Herb A", quantity: 9, saves: 9 * 10 - 9 * 2 }],
           ["Vial", 9, undefined],
         ],
       );

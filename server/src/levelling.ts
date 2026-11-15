@@ -77,7 +77,9 @@ export interface StepMaterial {
   cost: number;
   vendor: boolean;
   estimated: boolean;
-  via?: { name: string; quantity: number }; // bought to craft this reagent first
+  // Bought to craft this reagent first. `saves` is against buying the reagent
+  // itself; null when too little of it is on sale.
+  via?: { name: string; quantity: number; saves: number | null };
 }
 
 export interface LevelStep {
@@ -349,7 +351,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
           let inputs: StepMaterial[] | null = null;
           if (maker && canMake(maker, first.skill)) {
             const batches = Math.ceil(toBuy / maker.makes.quantity);
-            const via = { name: nameOf(reagent.itemId), quantity: toBuy };
+            const via = { name: nameOf(reagent.itemId), quantity: toBuy, saves: null as number | null };
             inputs = [];
             for (const input of maker.reagents) {
               const line = buyLine(input.itemId, input.quantity * batches);
@@ -361,6 +363,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
             }
             const inputCost = inputs?.reduce((sum, line) => sum + line.cost, 0) ?? Infinity;
             if (inputs && direct && direct.cost < inputCost) inputs = null;
+            if (direct) via.saves = direct.cost - inputCost;
             if (inputs) spare.push([reagent.itemId, batches * maker.makes.quantity - toBuy]);
           }
 
