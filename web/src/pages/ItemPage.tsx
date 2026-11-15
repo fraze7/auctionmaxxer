@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { itemApi, type HistoryPoint, type ItemDetail, type PriceLevel, type Trend } from '../api.ts'
 import { HistoryChart, SERIES_COLOR } from '../components/HistoryChart.tsx'
+import { TimeOfDay } from '../components/TimeOfDay.tsx'
 import { ItemName } from '../components/ItemName.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
@@ -96,6 +97,10 @@ export function ItemPage() {
             />
           )}
         </History>
+      </Card>
+
+      <Card title="Time of day" subtitle="How the cheapest price usually compares with the rest of the same day">
+        <TimeOfDay id={item.id} />
       </Card>
 
       {/* Supply gets its own charts: a different unit needs its own axis. */}

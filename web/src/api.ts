@@ -155,7 +155,21 @@ export interface ItemHistory {
   points: HistoryPoint[] // oldest first
 }
 
+export interface HourOfDay {
+  hour: number // 0-23, UTC
+  ratio: number | null // price / the day's typical price; null = too few samples
+  samples: number
+}
+
+export interface HourlyPattern {
+  id: number
+  days: number // span of history used
+  ready: boolean
+  hours: HourOfDay[]
+}
+
 export const itemApi = {
+  hours: (id: number) => get<HourlyPattern>(`/api/items/${id}/hours`),
   detail: (id: number) => get<ItemDetail>(`/api/items/${id}`),
   history: (id: number, days: number) => get<ItemHistory>(`/api/items/${id}/history`, { days }),
 }

@@ -8,6 +8,7 @@ import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } fro
 import { PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
+import { hourlyPattern } from "./hours.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
 import { deleteTabRule, listTabAlerts, listTabRules, saveTabRule, TAB_KINDS } from "./tabAlerts.js";
@@ -350,6 +351,14 @@ export function createApp(options: ApiOptions): Express {
       days: query.days,
       points: itemHistory.all({ itemId, houseId, since: now() - query.days * DAY_SECONDS }),
     });
+  });
+
+  // GET /api/items/:id/hours?house=  - price by hour of day, see hours.ts
+  app.get("/api/items/:id/hours", (req, res) => {
+    const { id: itemId } = parse(ItemParams, req.params);
+    const houseId = parse(StatusQuery, req.query).house ?? defaultHouseId;
+    if (!itemExists.get(itemId)?.n) throw new HttpError(404, `Item ${itemId} has never been seen`);
+    res.json({ id: itemId, house: houseId, ...hourlyPattern(db, houseId, itemId) });
   });
 
   // GET /api/deals?house=&minProfit=&maxQty=&limit=  - see deals.ts
