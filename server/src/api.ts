@@ -483,16 +483,20 @@ export function createApp(options: ApiOptions): Express {
     res.json({ house: houseId, ...findVendorDeals(db, houseId) });
   });
 
-  // GET /api/crafts?house=  - see crafts.ts
+  // GET /api/crafts?count=&house=  - see crafts.ts
   app.get("/api/crafts", (req, res) => {
-    const query = parse(z.object({ house: houseParam }), req.query);
+    const query = parse(
+      z.object({ house: houseParam, count: z.coerce.number().int().min(1).max(1000).optional() }),
+      req.query,
+    );
     const houseId = query.house ?? defaultHouseId;
     const { ahCut } = loadSettings(db);
     res.json({
       house: houseId,
       ahCut,
+      count: query.count ?? null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
-      ...findCrafts(db, houseId, Object.values(PROFESSIONS), ahCut),
+      ...findCrafts(db, houseId, Object.values(PROFESSIONS), ahCut, query.count),
     });
   });
 

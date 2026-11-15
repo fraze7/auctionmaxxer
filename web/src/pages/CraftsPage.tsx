@@ -5,7 +5,7 @@ import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
-import { useUrlParam } from '../useUrlParam.ts'
+import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // Recipes whose product sells for more than its materials cost. Worked out on
 // the server (server/src/crafts.ts).
@@ -13,16 +13,19 @@ import { useUrlParam } from '../useUrlParam.ts'
 export function CraftsPage() {
   const [profession, setProfession] = useUrlParam('profession')
   const [show, setShow] = useUrlParam('show')
+  // Crafts to price each recipe for; empty = as many as are worth making.
+  const [countText, setCountText] = useUrlParam('make')
+  const count = Math.min(toWholeNumber(countText) || 0, 1000) || undefined
   const crafts = useQuery({
-    queryKey: ['crafts'],
-    queryFn: craftsApi.list,
+    queryKey: ['crafts', count],
+    queryFn: () => craftsApi.list(count === undefined ? {} : { count }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
   })
 
   const options = [{ id: '', name: 'All' }, ...(crafts.data?.professions ?? [])]
   const rows = (crafts.data?.crafts ?? []).filter(
-    (craft) => (profession === '' || craft.profession.id === profession) && (show === 'all' || craft.profit > 0),
+    (craft) => (profession === '' || craft.profession.id === profession) && (show === 'all' || craft.totalProfit > 0),
   )
 
   return (
@@ -53,15 +56,28 @@ export function CraftsPage() {
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
-          checked={show === 'all'}
-          onChange={(event) => setShow(event.target.checked ? 'all' : '')}
-          className="accent-amber-500"
-        />
-        Show crafts that lose money too
-      </label>
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <label className="block text-xs text-zinc-400">
+          Make
+          <input
+            type="text"
+            inputMode="numeric"
+            value={countText}
+            placeholder="best"
+            onChange={(event) => setCountText(event.target.value.replace(/\D/g, '').slice(0, 4))}
+            className="tabular mt-1 block w-24 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+          />
+        </label>
+        <label className="flex items-center gap-2 pb-1.5 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={show === 'all'}
+            onChange={(event) => setShow(event.target.checked ? 'all' : '')}
+            className="accent-amber-500"
+          />
+          Show crafts that lose money too
+        </label>
+      </div>
 
       {crafts.isPending ? (
         <LoadingState />
@@ -77,11 +93,14 @@ export function CraftsPage() {
             rows={rows}
             columns={COLUMNS}
             rowKey={(craft) => `${craft.profession.id}-${craft.spellId}`}
-            initialSort={{ key: 'profit', direction: 'desc' }}
+            initialSort={{ key: 'total', direction: 'desc' }}
           />
           <p className="text-xs text-zinc-500">
-            Profit is for one craft, after the auction house keeps {Math.round(crafts.data.ahCut * 100)}% of the sale.
-            Prices are the cheapest listings, so making many will cost more and sell for less. Materials marked
+            Cost, Sells for and Profit are for one craft, after the auction house keeps{' '}
+            {Math.round(crafts.data.ahCut * 100)}% of the sale. Total profit is for the number under Make, with each
+            extra craft buying dearer materials. Left on &ldquo;best&rdquo;, that number stops when a craft would cost
+            more than it sells for, or at about a day&rsquo;s sales. The sale price is assumed to hold, which it will
+            not if you flood the market. * means part of the cost is an estimate beyond the listings the site stores. Materials marked
             &ldquo;made&rdquo; are cheaper to craft from their own inputs than to buy. Only products sold in stacks are
             tracked, so crafted gear is not listed. &ldquo;Sells / day&rdquo; is an estimate from cheap listings
             disappearing between hourly snapshots; treat it as a rough guide.
@@ -91,6 +110,14 @@ export function CraftsPage() {
     </div>
   )
 }
+
+// Why the Make number is what it is.
+const WHY = {
+  limited: 'all the market has',
+  materials: 'then materials run out or cost too much',
+  sales: "a day's sales",
+  none: '',
+} as const
 
 const COLUMNS: Column<Craft>[] = [
   {
@@ -165,6 +192,36 @@ const COLUMNS: Column<Craft>[] = [
         </span>
       ),
     sortValue: (craft) => craft.profit,
+  },
+  {
+    key: 'count',
+    header: 'Make',
+    align: 'right',
+    render: (craft) => (
+      <span className="whitespace-nowrap">
+        {formatNumber(craft.count)}
+        <span className="block text-xs text-zinc-500">{WHY[craft.limited ? 'limited' : (craft.heldBy ?? 'none')]}</span>
+      </span>
+    ),
+    sortValue: (craft) => craft.count,
+  },
+  {
+    key: 'total',
+    header: 'Total profit',
+    align: 'right',
+    render: (craft) => (
+      <span className="font-medium text-zinc-100">
+        {craft.totalProfit >= 0 ? (
+          <PriceTag copper={craft.totalProfit} />
+        ) : (
+          <span className="text-red-400">
+            −<PriceTag copper={-craft.totalProfit} />
+          </span>
+        )}
+        {craft.estimated && <span className="text-zinc-500">*</span>}
+      </span>
+    ),
+    sortValue: (craft) => craft.totalProfit,
   },
   {
     key: 'margin',

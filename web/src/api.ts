@@ -352,6 +352,12 @@ export interface Craft {
   sale: number // one craft, after the AH cut
   profit: number
   listed: number
+  count: number // crafts the totals are for
+  totalCost: number
+  totalProfit: number
+  limited: boolean // fewer than asked for: materials are not all on sale
+  heldBy: 'materials' | 'sales' | null // what stopped the count when none was asked for
+  estimated: boolean // part of the total is beyond the stored price levels
   soldPerDay: number | null // estimate for the product; null = too little history
 }
 
@@ -359,12 +365,13 @@ export interface CraftsResponse {
   house: number
   takenAt: number | null
   ahCut: number
+  count: number | null // crafts asked for; null = as many as are worth making
   professions: Array<{ id: string; name: string }>
   crafts: Craft[]
 }
 
 export const craftsApi = {
-  list: () => get<CraftsResponse>('/api/crafts'),
+  list: (params: { count?: number } = {}) => get<CraftsResponse>('/api/crafts', params),
 }
 
 // --- Movers ---

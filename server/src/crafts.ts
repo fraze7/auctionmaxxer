@@ -1,11 +1,18 @@
 import type { Db } from "./db.js";
+import { costToBuy } from "./favor.js";
 import { estimateSales } from "./liquidity.js";
-import type { Profession, Recipe } from "./levelling.js";
+import { loadMarket, type Profession, type Recipe } from "./levelling.js";
 
 // Which recipes make something that sells for more than its materials cost.
-// Prices are the cheapest listing in the latest snapshot, so the figures hold
-// for a craft or two, not a whole stack. Only products sold as commodities
+// The first craft is priced at the cheapest listings. Making more walks up the
+// order book for each material, so each craft costs a little more; `count` is
+// how many are worth making: until a craft costs more than it sells for, and
+// no more than about a day's estimated sales. The sale price stays at the
+// current cheapest: nothing here knows how far selling would push it down. Only products sold as commodities
 // can be priced; crafted gear is not tracked.
+
+// The most crafts worked out for one recipe.
+const MAX_COUNT = 1000;
 
 export interface CraftMaterial {
   itemId: number;
@@ -29,6 +36,13 @@ export interface Craft {
   sale: number; // what one craft sells for, after the AH cut
   profit: number;
   listed: number; // units of the product on sale now
+  count: number; // crafts the totals are for
+  totalCost: number;
+  totalProfit: number;
+  limited: boolean; // fewer than asked for: the materials are not all on sale
+  // What stopped the count when none was asked for: materials getting too dear, or a day's sales.
+  heldBy: "materials" | "sales" | null;
+  estimated: boolean; // part of the total is beyond the stored price levels
   soldPerDay: number | null; // estimate for the product, see liquidity.ts; null = too little history
 }
 
@@ -37,26 +51,37 @@ export interface CraftData {
   crafts: Craft[];
 }
 
-export function findCrafts(db: Db, houseId: number, professions: Profession[], ahCut: number): CraftData {
+// `wanted` = crafts to price each recipe for; left out = as many as stay profitable.
+export function findCrafts(
+  db: Db,
+  houseId: number,
+  professions: Profession[],
+  ahCut: number,
+  wanted?: number,
+): CraftData {
   const snapshot = db
-    .prepare<[number], { id: number; takenAt: number }>(`
+    .prepare<[number], { id: number; takenAt: number }>(
+      `
       SELECT id, taken_at AS takenAt
       FROM snapshots
       WHERE house_id = ? AND kind = 'commodities' AND status = 'ok'
       ORDER BY taken_at DESC
       LIMIT 1
-    `)
+    `,
+    )
     .get(houseId);
   if (!snapshot) return { takenAt: null, crafts: [] };
 
   const prices = new Map<number, { minPrice: number; quantity: number; name: string | null }>();
   const rows = db
-    .prepare<[number], { itemId: number; minPrice: number; quantity: number; name: string | null }>(`
+    .prepare<[number], { itemId: number; minPrice: number; quantity: number; name: string | null }>(
+      `
       SELECT p.item_id AS itemId, p.min_price AS minPrice, p.quantity, i.name
       FROM commodity_prices p
       LEFT JOIN items i ON i.item_id = p.item_id
       WHERE p.snapshot_id = ?
-    `)
+    `,
+    )
     .all(snapshot.id);
   for (const row of rows) prices.set(row.itemId, row);
 
@@ -76,6 +101,55 @@ export function findCrafts(db: Db, houseId: number, professions: Profession[], a
         cost += price * input.quantity;
       }
       return cost / recipe.makes.quantity;
+    };
+
+    const { market } = loadMarket(db, houseId, profession);
+    // Cost of `quantity` of an item bought outright, walking its order book.
+    const buyCost = (itemId: number, quantity: number): { cost: number; estimated: boolean } | null => {
+      const vendorPrice = vendor[itemId];
+      if (vendorPrice !== undefined) return { cost: vendorPrice * quantity, estimated: false };
+      const item = market.get(itemId);
+      const cost = costToBuy(item?.book, quantity);
+      return cost === null ? null : { cost, estimated: quantity > (item?.exactUnits ?? 0) };
+    };
+    // Materials for `count` crafts; each reagent is bought or made, whichever is cheaper.
+    const totalFor = (recipe: Recipe, count: number): { cost: number; estimated: boolean } | null => {
+      let cost = 0;
+      let estimated = false;
+      for (const reagent of recipe.reagents) {
+        const need = reagent.quantity * count;
+        const bought = buyCost(reagent.itemId, need);
+        const maker = makers.get(reagent.itemId);
+        let made: { cost: number; estimated: boolean } | null = null;
+        if (maker && maker.makes.quantity > 0) {
+          const batches = Math.ceil(need / maker.makes.quantity);
+          made = { cost: 0, estimated: false };
+          for (const input of maker.reagents) {
+            const part = buyCost(input.itemId, input.quantity * batches);
+            if (!part) {
+              made = null;
+              break;
+            }
+            made = { cost: made.cost + part.cost, estimated: made.estimated || part.estimated };
+          }
+        }
+        const best = made && (!bought || made.cost < bought.cost) ? made : bought;
+        if (!best) return null;
+        cost += best.cost;
+        estimated ||= best.estimated;
+      }
+      return { cost, estimated };
+    };
+    // Largest count from 1 to `max` that passes; passing counts come before failing ones.
+    const lastPassing = (max: number, passes: (count: number) => boolean): number => {
+      let low = 0;
+      let high = max;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (passes(middle)) low = middle;
+        else high = middle - 1;
+      }
+      return low;
     };
 
     for (const recipe of profession.recipes) {
@@ -101,6 +175,32 @@ export function findCrafts(db: Db, houseId: number, professions: Profession[], a
 
       const cost = materials.reduce((sum, m) => sum + m.unitCost * m.quantity, 0);
       const sale = Math.floor(product.minPrice * recipe.makes.quantity * (1 - ahCut));
+
+      const soldPerDay = sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(recipe.makes.itemId) ?? 0) : null;
+      let count: number;
+      let heldBy: Craft["heldBy"] = null;
+      if (wanted !== undefined) {
+        count = lastPassing(Math.min(wanted, MAX_COUNT), (n) => totalFor(recipe, n) !== null);
+      } else {
+        // Worth making while the next craft still costs less than it sells for.
+        count = lastPassing(MAX_COUNT, (n) => {
+          const upTo = totalFor(recipe, n);
+          const before = n === 1 ? { cost: 0 } : totalFor(recipe, n - 1);
+          return upTo !== null && before !== null && upTo.cost - before.cost < sale;
+        });
+        if (count < MAX_COUNT) heldBy = "materials";
+        // No point making more than sell in a day.
+        if (soldPerDay !== null) {
+          const aDaysSales = Math.max(1, Math.floor(soldPerDay / recipe.makes.quantity));
+          if (aDaysSales < count) {
+            count = aDaysSales;
+            heldBy = "sales";
+          }
+        }
+      }
+      const total = (count > 0 ? totalFor(recipe, count) : null) ?? { cost, estimated: false };
+      count = Math.max(count, 1);
+
       crafts.push({
         profession: { id: profession.id, name: profession.name },
         spellId: recipe.spellId,
@@ -115,11 +215,17 @@ export function findCrafts(db: Db, houseId: number, professions: Profession[], a
         sale,
         profit: sale - cost,
         listed: product.quantity,
-        soldPerDay: sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(recipe.makes.itemId) ?? 0) : null,
+        count,
+        totalCost: total.cost,
+        totalProfit: sale * count - total.cost,
+        limited: wanted !== undefined && count < Math.min(wanted, MAX_COUNT),
+        heldBy,
+        estimated: total.estimated,
+        soldPerDay,
       });
     }
   }
 
-  crafts.sort((a, b) => b.profit - a.profit);
+  crafts.sort((a, b) => b.totalProfit - a.totalProfit);
   return { takenAt: snapshot.takenAt, crafts };
 }
