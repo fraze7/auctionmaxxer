@@ -40,13 +40,9 @@ const GROUPS = [
       { to: '/movers', name: 'Movers' },
     ],
   },
-  {
-    name: 'Mine',
-    tabs: [
-      { to: '/watchlist', name: 'Watchlist' },
-      { to: '/character', name: 'Character' },
-    ],
-  },
+  // One tab each, so these two are plain links with no row under them.
+  { name: 'Watchlist', tabs: [{ to: '/watchlist', name: 'Watchlist' }] },
+  { name: 'Character', tabs: [{ to: '/character', name: 'Character' }] },
 ]
 
 export default function App() {
@@ -75,9 +71,7 @@ export default function App() {
                 ].join(' ')}
               >
                 {candidate.name}
-                {candidate !== group && candidate.tabs.some((tab) => tab.to === '/watchlist') && (
-                  <Badge count={triggered} />
-                )}
+                {candidate.name === 'Watchlist' && <Badge count={triggered} />}
               </Link>
             ))}
           </nav>
@@ -85,13 +79,15 @@ export default function App() {
             <LastUpdated />
           </span>
         </div>
-        <nav className="mx-auto flex max-w-7xl gap-1 px-4 pb-2 text-sm">
-          {group.tabs.map((tab) => (
-            <Tab key={tab.to} to={tab.to} badge={tab.to === '/watchlist' ? triggered : 0}>
-              {tab.name}
-            </Tab>
-          ))}
-        </nav>
+        {group.tabs.length > 1 && (
+          <nav className="mx-auto flex max-w-7xl gap-1 px-4 pb-2 text-sm">
+            {group.tabs.map((tab) => (
+              <Tab key={tab.to} to={tab.to}>
+                {tab.name}
+              </Tab>
+            ))}
+          </nav>
+        )}
       </header>
       <StaleBanner />
       <RefreshOnNewSnapshot />
@@ -121,7 +117,7 @@ export default function App() {
   )
 }
 
-function Tab({ to, badge = 0, children }: { to: string; badge?: number; children: string }) {
+function Tab({ to, children }: { to: string; children: string }) {
   const { pathname } = useLocation()
   // The item page keeps Items lit.
   const onItem = to === '/items' && pathname.startsWith('/item/')
@@ -134,7 +130,6 @@ function Tab({ to, badge = 0, children }: { to: string; badge?: number; children
       }
     >
       {children}
-      <Badge count={badge} />
     </NavLink>
   )
 }
