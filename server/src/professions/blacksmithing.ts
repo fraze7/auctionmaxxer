@@ -6,8 +6,9 @@ import { r } from "./recipe.js";
 // 2026). Trainer recipes and the five starting recipes, plus three plans sold
 // by vendors with no reputation needed (trainer recipes stop giving points at
 // 285) and fourteen dropped plans, which are bought on the auction house: the
-// owner confirmed that on 15 Nov 2026. Plan prices are not known to the site.
-// Left out: quest and reputation plans, specialisation recipes, and
+// owner confirmed that on 15 Nov 2026, and that the Imperial Plate quests
+// exist in Gadgetzan. Plan prices and quest hand-ins are not counted.
+// Left out: other quest plans, reputation plans, specialisation recipes, and
 // Sharpening Wheel (never gives skill).
 
 const WEAK_FLUX = 2880;
@@ -129,6 +130,13 @@ const RECIPES: Recipe[] = [
   r(1252340, "Blessed Plate Leggings", [270, 290, 310], [250591, 1], [[12359, 40], [12361, 2]], true),
   r(1252341, "Blessed Plate Belt", [270, 290, 310], [250592, 1], [[12359, 18], [12361, 1], [7071, 1], [8170, 6]], true),
   r(1252343, "Blessed Plate Chest", [280, 300, 320], [250594, 1], [[12359, 36], [12361, 2]], true),
+
+  // Imperial Plate plans, from the quests in Gadgetzan (each asks for Thorium Bars).
+  r(16646, "Imperial Plate Shoulders", [0, 265, 280], [12428, 1], [[12359, 24], [8170, 6], [3864, 2]], true),
+  r(16647, "Imperial Plate Belt", [0, 265, 280], [12424, 1], [[12359, 22], [8170, 6], [7909, 1]], true),
+  r(16649, "Imperial Plate Bracers", [0, 270, 285], [12425, 1], [[12359, 20], [7910, 1]], true),
+  r(16657, "Imperial Plate Boots", [0, 295, 310], [12426, 1], [[12359, 34], [7910, 1], [7909, 1]], true),
+  r(16658, "Imperial Plate Helm", [0, 295, 310], [12427, 1], [[12359, 34], [7910, 2]], true),
 ];
 
 export const BLACKSMITHING: Profession = {
