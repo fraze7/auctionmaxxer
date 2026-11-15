@@ -149,6 +149,38 @@ function groupAlternating(choices: Choice[]): void {
   }
 }
 
+// A step this short is folded into a neighbouring step when that costs at most
+// ABSORB_EXTRA more for those points: fewer rows to follow for a few copper.
+const SHORT_STEP = 5;
+const ABSORB_EXTRA = 0.25;
+
+// `costs` holds pass 1's price for every usable recipe at each skill.
+function absorbShortSteps(choices: Choice[], costs: ReadonlyMap<number, ReadonlyMap<Recipe, number>>): void {
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let i = 0, j = 0; i < choices.length; i = j) {
+      const own = choices[i]!.recipe;
+      while (j < choices.length && choices[j]!.recipe === own) j++;
+      const run = choices.slice(i, j);
+      if (run.length > SHORT_STEP) continue;
+      // Later steps may be counting on what this one makes.
+      const feedsLater = choices.slice(j).some((c) => c.recipe.reagents.some((r) => r.itemId === own.makes.itemId));
+      if (feedsLater) continue;
+
+      const costOf = (recipe: Recipe) =>
+        run.reduce((sum, choice) => sum + (costs.get(choice.skill)?.get(recipe) ?? Infinity), 0);
+      const neighbours = [choices[i - 1]?.recipe, choices[j]?.recipe].filter((r): r is Recipe => r !== undefined);
+      const best = neighbours.sort((a, b) => costOf(a) - costOf(b))[0];
+      if (!best || !Number.isFinite(costOf(best)) || costOf(best) > costOf(own) * (1 + ABSORB_EXTRA)) continue;
+      for (const choice of run) {
+        choice.recipe = best;
+        choice.crafts = 1 / skillUpChance(best, choice.skill);
+      }
+      changed = true;
+    }
+  }
+}
+
 export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
   const vendor = profession.vendorPrices;
 
@@ -175,6 +207,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     const used = new Map(bought);
     const made = new Map(stock);
     const choices: Choice[] = [];
+    const costs = new Map<number, Map<Recipe, number>>();
 
     const priceOf = (itemId: number, quantity: number) => {
       const vendorPrice = vendor[itemId];
@@ -205,6 +238,8 @@ export function planLevelling(profession: Profession, market: Market, from: numb
 
     for (let skill = reached; skill < to; skill++) {
       let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
+      const atSkill = new Map<Recipe, number>();
+      costs.set(skill, atSkill);
       for (const recipe of profession.recipes) {
         const chance = skillUpChance(recipe, skill);
         if (chance === 0 || banned.has(`${recipe.spellId}@${skill}`)) continue;
@@ -221,6 +256,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
           }
           cost += source.cost;
         }
+        atSkill.set(recipe, cost);
         if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
       }
       if (!best) break; // nothing can be crafted for this point
@@ -249,6 +285,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     }
 
     groupAlternating(choices);
+    absorbShortSteps(choices, costs);
 
     // Pass 2: group consecutive points on the same recipe into steps (never
     // across a tier break) and price each step exactly, walking the order books.

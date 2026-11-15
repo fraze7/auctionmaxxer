@@ -233,6 +233,25 @@ describe("planLevelling", () => {
     );
   });
 
+  describe("a short step", () => {
+    const MAIN = recipe("Main", 1, 30, 40, [[1, 1]]);
+    const BLIP = recipe("Blip!", 10, 30, 40, [[2, 1]]);
+    const profession: Profession = { ...TEST, recipes: [MAIN, BLIP] };
+    const rows = (plan: ReturnType<typeof planLevelling>) => plan.steps.map((s) => [s.recipeName, s.from, s.to]);
+
+    it("is folded into its neighbour when that costs little more", () => {
+      // Two points where Blip! is 5c cheaper are not worth two extra rows.
+      const plan = planLevelling(profession, market({ 1: [[100, 1000]], 2: [[95, 2], [300, 1000]] }), 1, 20);
+      assert.deepEqual(rows(plan), [["Main", 1, 20]]);
+      assert.equal(plan.totalCost, 1900);
+    });
+
+    it("is kept when it saves a lot", () => {
+      const plan = planLevelling(profession, market({ 1: [[100, 1000]], 2: [[50, 2], [300, 1000]] }), 1, 20);
+      assert.deepEqual(rows(plan), [["Main", 1, 10], ["Blip!", 10, 12], ["Main", 12, 20]]);
+    });
+  });
+
   describe("with a helper profession", () => {
     // Herb A (item 1) can be milled from Root (item 5) at helper skill 50.
     const helper: Helper = {
