@@ -90,6 +90,7 @@ export interface LevelStep {
   plan: boolean;
   materials: StepMaterial[];
   cost: number;
+  stops: Array<{ skill: number; cost: number }>; // the step's cost if it ended early at `skill`
 }
 
 export interface LevelBracket {
@@ -117,6 +118,8 @@ const TIER_BREAKS = [150, 225];
 // The route stops when a point would cost this many times the dearest so far:
 // that only happens when the sensible recipes cannot be supplied.
 const PRICE_JUMP = 10;
+// Early stopping points are priced at multiples of this within a step.
+const STOP_EVERY = 5;
 
 type Choice = { skill: number; recipe: Recipe; crafts: number };
 
@@ -321,17 +324,10 @@ export function planLevelling(profession: Profession, market: Market, from: numb
         };
       };
 
-      // Rounding crafts up can need more than is listed; if so, cover fewer points.
-      let crafts = 0;
-      let materials: StepMaterial[] = [];
-      let spare: Array<[number, number]> = []; // left over from crafting reagents
-      let affordable = false;
-      for (; end > index && !affordable; end -= affordable ? 0 : 1) {
-        const expected = choices.slice(index, end).reduce((sum, choice) => sum + choice.crafts, 0);
-        crafts = Math.ceil(expected - 1e-9);
-        materials = [];
-        spare = [];
-        affordable = true;
+      // The materials for `crafts` of this recipe; null if the market cannot supply them.
+      const priceCrafts = (crafts: number): { materials: StepMaterial[]; spare: Array<[number, number]> } | null => {
+        const materials: StepMaterial[] = [];
+        const spare: Array<[number, number]> = []; // left over from crafting reagents
         for (const reagent of first.recipe.reagents) {
           const quantity = reagent.quantity * crafts;
           const crafted = Math.min(stock.get(reagent.itemId) ?? 0, quantity);
@@ -374,15 +370,31 @@ export function planLevelling(profession: Profession, market: Market, from: numb
           } else if (direct) {
             materials.push({ ...direct, quantity, crafted });
           } else {
-            affordable = false;
-            break;
+            return null;
           }
         }
-      }
-      if (!affordable) {
+        return { materials, spare };
+      };
+      const craftsTo = (stop: number) =>
+        Math.ceil(choices.slice(index, stop).reduce((sum, choice) => sum + choice.crafts, 0) - 1e-9);
+
+      // Rounding crafts up can need more than is listed; if so, cover fewer points.
+      let priced = priceCrafts(craftsTo(end));
+      while (!priced && end - 1 > index) priced = priceCrafts(craftsTo(--end));
+      if (!priced) {
         banned.add(`${first.recipe.spellId}@${first.skill}`);
         replan = true;
         break;
+      }
+      const { materials, spare } = priced;
+      const crafts = craftsTo(end);
+
+      // What the step would cost if it stopped early, at every STOP_EVERY points.
+      const stops: Array<{ skill: number; cost: number }> = [];
+      for (let stop = index + 1; stop < end; stop++) {
+        const skill = choices[stop]!.skill;
+        const part = skill % STOP_EVERY === 0 ? priceCrafts(craftsTo(stop)) : null;
+        if (part) stops.push({ skill, cost: part.materials.reduce((sum, m) => sum + m.cost, 0) });
       }
 
       for (const material of materials) {
@@ -404,6 +416,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
         plan: first.recipe.plan ?? false,
         materials,
         cost: materials.reduce((sum, m) => sum + m.cost, 0),
+        stops,
       });
       reached = last.skill + 1;
       if (end < fullEnd) {

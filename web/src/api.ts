@@ -345,6 +345,7 @@ export interface LevelStep {
   plan: boolean // needs a bought plan, not a trainer
   materials: LevelMaterial[]
   cost: number
+  stops: Array<{ skill: number; cost: number }> // the step's cost if it ended early at `skill`
 }
 
 export interface LevellingResponse {

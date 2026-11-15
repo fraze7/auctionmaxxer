@@ -233,6 +233,19 @@ describe("planLevelling", () => {
     );
   });
 
+  it("prices each step as if it stopped early, every five points", () => {
+    const only: Profession = { ...TEST, recipes: [recipe("Main", 1, 30, 40, [[1, 1]])] };
+    const plan = planLevelling(only, market({ 1: [[100, 10], [200, 1000]] }), 1, 20);
+
+    assert.equal(plan.steps.length, 1);
+    // 4, 9 and 14 crafts: the first ten units are 100c, the rest 200c.
+    assert.deepEqual(plan.steps[0]?.stops, [
+      { skill: 5, cost: 400 },
+      { skill: 10, cost: 900 },
+      { skill: 15, cost: 1800 },
+    ]);
+  });
+
   describe("a short step", () => {
     const MAIN = recipe("Main", 1, 30, 40, [[1, 1]]);
     const BLIP = recipe("Blip!", 10, 30, 40, [[2, 1]]);

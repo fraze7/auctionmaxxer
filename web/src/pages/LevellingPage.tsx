@@ -118,22 +118,26 @@ export function LevellingPage() {
   )
 }
 
-// The last stretch of a route is often most of its cost. Where the final
-// LAST_POINTS hold at least a third of the total, say what stopping short saves.
+// The last stretch of a route is often most of its cost. Where a third of the
+// total falls within the final LAST_POINTS, say what stopping short saves.
 const LAST_POINTS = 25
 const STEEP_SHARE = 1 / 3
 
 function SteepEnding({ plan }: { plan: LevellingResponse }) {
-  // Of the steps starting in the last stretch, the one with the dearest points after it.
-  let stop: { skill: number; tail: number } | undefined
-  let tail = 0
-  for (const step of [...plan.steps].reverse()) {
-    if (step.from < plan.reached - LAST_POINTS || step.from <= plan.from) break
-    tail += step.cost
-    const perPoint = tail / (plan.reached - step.from)
-    if (!stop || perPoint > stop.tail / (plan.reached - stop.skill)) stop = { skill: step.from, tail }
+  // Places to stop in the last stretch: where a step starts, or part-way through one.
+  const candidates: Array<{ skill: number; tail: number }> = []
+  let spent = 0
+  for (const step of plan.steps) {
+    candidates.push({ skill: step.from, tail: plan.totalCost - spent })
+    for (const part of step.stops) candidates.push({ skill: part.skill, tail: plan.totalCost - spent - part.cost })
+    spent += step.cost
   }
-  if (!stop || stop.tail < plan.totalCost * STEEP_SHARE) return null
+  // The shortest final stretch that holds at least a third of the cost.
+  const stop = candidates
+    .filter((c) => c.skill >= plan.reached - LAST_POINTS && c.skill > plan.from && c.skill < plan.reached)
+    .filter((c) => c.tail >= plan.totalCost * STEEP_SHARE)
+    .sort((a, b) => b.skill - a.skill)[0]
+  if (!stop) return null
 
   return (
     <p className="text-sm text-zinc-400">
