@@ -8,7 +8,7 @@ import { SELL_RATE_HINT } from '../sellRate.ts'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { useSkills } from '../profile.ts'
-import { useUrlParam } from '../useUrlParam.ts'
+import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 
 // Recipes whose product sells for more than its materials cost. Worked out on
 // the server (server/src/crafts.ts).
@@ -22,6 +22,10 @@ export function CraftsPage() {
     refetchInterval: 5 * 60_000,
   })
 
+  // Per craft, in silver; empty = no minimum.
+  const [minProfitText, setMinProfitText] = useUrlParam('profit')
+  const minProfit = (toWholeNumber(minProfitText) ?? 0) * 100
+
   // With a saved character, only what it can make is shown unless asked otherwise.
   const skills = useSkills()
   const [everyone, setEveryone] = useUrlParam('everyone')
@@ -33,7 +37,7 @@ export function CraftsPage() {
   const rows = (crafts.data?.crafts ?? []).filter(
     (craft) =>
       (profession === '' || craft.profession.id === profession) &&
-      (show === 'all' || craft.profit > 0) &&
+      (minProfit > 0 ? craft.profit >= minProfit : show === 'all' || craft.profit > 0) &&
       (!onlyMine || canMake(craft)),
   )
 
@@ -66,6 +70,17 @@ export function CraftsPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <label className="block text-xs text-zinc-400">
+          Profit of at least (silver)
+          <input
+            type="text"
+            inputMode="numeric"
+            value={minProfitText}
+            placeholder="any"
+            onChange={(event) => setMinProfitText(event.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="tabular mt-1 block w-24 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+          />
+        </label>
         <label className="flex items-center gap-2 pb-1.5 text-sm text-zinc-300">
           <input
             type="checkbox"
@@ -94,7 +109,7 @@ export function CraftsPage() {
         <ErrorState error={crafts.error} />
       ) : rows.length === 0 ? (
         <EmptyState title="Nothing profitable right now">
-          <p>No tracked recipe sells for more than its materials at current prices.</p>
+          <p>No tracked recipe clears its materials by that much at current prices.</p>
         </EmptyState>
       ) : (
         <>
