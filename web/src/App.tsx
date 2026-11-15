@@ -1,5 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
-import { LastUpdated, StaleBanner } from './components/StatusBar.tsx'
+import { LastUpdated, RefreshOnNewSnapshot, StaleBanner } from './components/StatusBar.tsx'
 import { DealsPage } from './pages/DealsPage.tsx'
 import { CraftsPage } from './pages/CraftsPage.tsx'
 import { FavorPage } from './pages/FavorPage.tsx'
@@ -42,6 +42,7 @@ export default function App() {
         </div>
       </header>
       <StaleBanner />
+      <RefreshOnNewSnapshot />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
         <Routes>
