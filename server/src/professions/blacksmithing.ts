@@ -4,9 +4,11 @@ import { r } from "./recipe.js";
 
 // Blacksmithing recipes for WoW: Forever, from Wowhead's spell list (14 Nov
 // 2026). Trainer recipes and the five starting recipes, plus three plans sold
-// by vendors with no reputation needed: trainer recipes stop giving points at
-// 285. Left out: drops, quest and reputation plans, and Sharpening Wheel
-// (never gives skill).
+// by vendors with no reputation needed (trainer recipes stop giving points at
+// 285) and fourteen dropped plans, which are bought on the auction house: the
+// owner confirmed that on 15 Nov 2026. Plan prices are not known to the site.
+// Left out: quest and reputation plans, specialisation recipes, and
+// Sharpening Wheel (never gives skill).
 
 const WEAK_FLUX = 2880;
 const STRONG_FLUX = 3466;
@@ -111,6 +113,22 @@ const RECIPES: Recipe[] = [
   r(10013, "Ebon Shiv", [255, 255, 280], [7947, 1], [[3860, 12], [6037, 6], [7910, 2], [7966, 1], [4304, 2]], true),
   r(16969, "Ornate Thorium Handaxe", [275, 275, 300], [12773, 1], [[12359, 20], [12799, 2], [12644, 2], [8170, 4]], true),
   r(16971, "Huge Thorium Battleaxe", [280, 280, 305], [12775, 1], [[12359, 40], [12644, 6], [8170, 6]], true),
+
+  // Plans that drop in the world and are sold on the auction house.
+  r(16644, "Thorium Bracers", [0, 255, 270], [12408, 1], [[12359, 12], [11184, 4]], true),
+  r(16648, "Radiant Breastplate", [0, 270, 285], [12415, 1], [[12359, 18], [7077, 2], [7910, 1]], true),
+  r(16651, "Thorium Shield Spike", [0, 275, 290], [12645, 1], [[12359, 4], [12644, 4], [7076, 2]], true),
+  r(16652, "Thorium Boots", [0, 280, 295], [12409, 1], [[12359, 20], [8170, 8], [11185, 4]], true),
+  r(16653, "Thorium Helm", [0, 280, 295], [12410, 1], [[12359, 24], [7910, 1], [11188, 4]], true),
+  r(16654, "Radiant Gloves", [0, 285, 300], [12418, 1], [[12359, 18], [7077, 4]], true),
+  r(16656, "Radiant Boots", [0, 290, 305], [12419, 1], [[12359, 14], [7077, 4]], true),
+  r(16984, "Volcanic Hammer", [290, 290, 315], [12792, 1], [[12359, 30], [7077, 4], [7910, 4], [8170, 4]], true),
+  r(1252337, "Blessed Plate Gauntlet", [245, 265, 285], [250588, 1], [[12359, 20], [12361, 2]], true),
+  r(1252338, "Imperial Plate Gauntlets", [255, 275, 295], [250589, 1], [[12359, 24], [7910, 1]], true),
+  r(1252339, "Blessed Plate Bracers", [255, 275, 295], [250590, 1], [[12359, 16], [12361, 1]], true),
+  r(1252340, "Blessed Plate Leggings", [270, 290, 310], [250591, 1], [[12359, 40], [12361, 2]], true),
+  r(1252341, "Blessed Plate Belt", [270, 290, 310], [250592, 1], [[12359, 18], [12361, 1], [7071, 1], [8170, 6]], true),
+  r(1252343, "Blessed Plate Chest", [280, 300, 320], [250594, 1], [[12359, 36], [12361, 2]], true),
 ];
 
 export const BLACKSMITHING: Profession = {
@@ -162,6 +180,9 @@ export const BLACKSMITHING: Profession = {
     7079: "Globe of Water",
     7081: "Breath of Wind",
     7909: "Aquamarine",
+    7071: "Iron Buckle",
+    7076: "Essence of Earth",
+    7077: "Heart of Fire",
     7910: "Star Ruby",
     7912: "Solid Stone",
     7966: "Solid Grinding Stone",
@@ -171,7 +192,11 @@ export const BLACKSMITHING: Profession = {
     8831: "Purple Lotus",
     10938: "Lesser Magic Essence",
     10940: "Strange Dust",
+    11184: "Blue Power Crystal",
+    11185: "Green Power Crystal",
+    11188: "Yellow Power Crystal",
     12359: "Thorium Bar",
+    12361: "Blue Sapphire",
     12360: "Arcanite Bar",
     12365: "Dense Stone",
     12644: "Dense Grinding Stone",

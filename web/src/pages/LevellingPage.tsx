@@ -193,7 +193,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
           Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more or
           fewer. Trainer fees are not included, and nothing is deducted for selling what you make.
           {plan.steps.some((step) => step.plan) &&
-            ' Recipes marked "plan" are learned from plans sold by vendors, not from a trainer; the price of the plan is not included.'}
+            ' Recipes marked "plan" are learned from plans bought from a vendor or the auction house, not from a trainer; the price of the plan is not included.'}
         </p>
       </section>
 
