@@ -45,11 +45,9 @@ describe("the track record", () => {
     await snapshot(db, 14, [[1, 40, 10], [1, 50, 5], [1, 120, 200]]);
     assert.equal(record(db), 0); // same item within a day
 
-    const { recent, summary } = loadTrackRecord(db, 113, 0.05);
-    assert.deepEqual(
-      recent.map((o) => [o.kind, o.itemId, o.units, o.cost, o.expectedProfit, o.status, o.actualProfit]),
-      [["reset", 1, 15, 650, 15 * 113 - 650, "pending", null]],
-    );
+    const { recent, pending, summary } = loadTrackRecord(db, 113, 0.05);
+    assert.deepEqual(recent, []); // not a day old yet
+    assert.equal(pending, 1);
     assert.deepEqual(
       summary.map((s) => [s.kind, s.saved, s.judged]),
       [
@@ -68,8 +66,8 @@ describe("the track record", () => {
     // 15 units at 90c less 5% = 85c each, against 650c paid.
     assert.equal(since, 13 * HOUR);
     assert.deepEqual(
-      recent.map((o) => [o.status, o.laterPrice, o.actualProfit]),
-      [["judged", 90, 15 * 85 - 650]],
+      recent.map((o) => [o.kind, o.itemId, o.units, o.cost, o.expectedProfit, o.status, o.laterPrice, o.actualProfit]),
+      [["reset", 1, 15, 650, 15 * 113 - 650, "judged", 90, 15 * 85 - 650]],
     );
     assert.deepEqual(summary[1], {
       kind: "reset",

@@ -103,7 +103,8 @@ export interface KindSummary {
 export interface TrackRecord {
   since: number | null; // when the first pick was saved
   summary: KindSummary[];
-  recent: Outcome[];
+  recent: Outcome[]; // newest first, once a day old
+  pending: number; // picks not a day old yet
 }
 
 export function loadTrackRecord(db: Db, houseId: number, ahCut: number, recentLimit = 100): TrackRecord {
@@ -152,6 +153,7 @@ export function loadTrackRecord(db: Db, houseId: number, ahCut: number, recentLi
   return {
     since: outcomes.length > 0 ? Math.min(...outcomes.map((o) => o.takenAt)) : null,
     summary,
-    recent: outcomes.slice(0, recentLimit),
+    recent: outcomes.filter((o) => o.status !== "pending").slice(0, recentLimit),
+    pending: outcomes.filter((o) => o.status === "pending").length,
   };
 }

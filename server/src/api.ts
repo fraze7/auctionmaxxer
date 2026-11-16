@@ -175,9 +175,14 @@ export function createApp(options: ApiOptions): Express {
     LIMIT 1
   `);
 
-  // LEFT JOIN: items not listed right now still appear, with price: null.
-  const SEARCH_WHERE = `
-    i.kind = 'commodity' AND (@q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q)
+  // Without a search: only what is listed now, busiest first. A search also
+  // finds items not listed right now (price: null), A to Z.
+  const SEARCH_FROM = `
+    FROM items i
+    LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
+    WHERE i.kind = 'commodity'
+      AND (@q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q)
+      AND (@q <> '' OR p.item_id IS NOT NULL)
   `;
   const searchItems = db.prepare<
     { q: string; pattern: string; snapshotId: number; limit: number; offset: number },
@@ -185,14 +190,13 @@ export function createApp(options: ApiOptions): Express {
   >(`
     SELECT i.item_id, i.name, i.quality, i.status,
            p.min_price, p.median_price, p.quantity, p.qty_at_min, p.listing_count
-    FROM items i
-    LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
-    WHERE ${SEARCH_WHERE}
-    ORDER BY i.name IS NULL, i.name COLLATE NOCASE, i.item_id   -- unnamed items last
+    ${SEARCH_FROM}
+    ORDER BY CASE WHEN @q = '' THEN p.listing_count END DESC,
+             i.name IS NULL, i.name COLLATE NOCASE, i.item_id   -- unnamed items last
     LIMIT @limit OFFSET @offset
   `);
-  const countItems = db.prepare<{ q: string; pattern: string }, { n: number }>(`
-    SELECT COUNT(*) AS n FROM items i WHERE ${SEARCH_WHERE}
+  const countItems = db.prepare<{ q: string; pattern: string; snapshotId: number }, { n: number }>(`
+    SELECT COUNT(*) AS n ${SEARCH_FROM}
   `);
 
   const oneItem = db.prepare<{ itemId: number; snapshotId: number }, ItemRow>(`
@@ -289,10 +293,10 @@ export function createApp(options: ApiOptions): Express {
     const houseId = query.house ?? defaultHouseId;
     const latest = latestSnapshot.get(houseId);
 
-    const search = { q: query.q, pattern: likePattern(query.q) };
+    // -1 matches no snapshot: every price is null.
+    const search = { q: query.q, pattern: likePattern(query.q), snapshotId: latest?.id ?? -1 };
     const rows = searchItems.all({
       ...search,
-      snapshotId: latest?.id ?? -1, // -1 matches no snapshot: every price is null
       limit: query.limit,
       offset: query.offset,
     });

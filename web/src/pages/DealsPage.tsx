@@ -56,8 +56,8 @@ const columns: Column<Deal>[] = [
     title: 'How the last 24 hours compare with the last 7 days',
     align: 'right',
     render: (d) => (
-      <span className={TREND_STYLE[d.trend]}>
-        {formatTrend(d.trendRatio)} {d.trend}
+      <span className={TREND_STYLE[d.trend]} title={`24h median ${formatTrend(d.trendRatio)} against the 7d median`}>
+        {d.trend}
       </span>
     ),
     sortValue: (d) => d.trendRatio,
@@ -106,11 +106,11 @@ export function DealsPage() {
 
 function DealsView() {
   // Filters live in the URL, so views can be bookmarked.
-  const [minProfitText, setMinProfitText] = useUrlParam('minProfit')
+  const [minProfitText, setMinProfitText] = useUrlParam('profit') // silver
   const [maxQtyText, setMaxQtyText] = useUrlParam('maxQty')
 
   const params = {
-    minProfit: toWholeNumber(minProfitText),
+    minProfit: minProfitText ? (toWholeNumber(minProfitText) ?? 0) * 100 : undefined,
     maxQty: toWholeNumber(maxQtyText) || undefined, // 0 would be rejected; treat as "no cap"
   }
 
@@ -135,11 +135,10 @@ function DealsView() {
         <ShowToggle />
 
         <NumberField
-          label="Min profit / unit (copper)"
+          label="Profit per unit of at least (silver)"
           value={minProfitText}
           onChange={setMinProfitText}
-          placeholder={String(settings.data?.dealMinProfit ?? 1)}
-          preview={params.minProfit}
+          placeholder="any"
         />
         <NumberField label="Max units to buy" value={maxQtyText} onChange={setMaxQtyText} placeholder="no cap" />
       </div>
@@ -207,20 +206,12 @@ interface NumberFieldProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  preview?: number | undefined // shown as a price next to the label, e.g. 1g 50s
 }
 
-function NumberField({ label, value, onChange, placeholder, preview }: NumberFieldProps) {
+function NumberField({ label, value, onChange, placeholder }: NumberFieldProps) {
   return (
     <label className="block text-xs text-zinc-400">
-      <span className="flex justify-between gap-3">
-        {label}
-        {preview !== undefined && (
-          <span className="text-zinc-300">
-            <PriceTag copper={preview} />
-          </span>
-        )}
-      </span>
+      {label}
       <input
         type="text"
         inputMode="numeric"

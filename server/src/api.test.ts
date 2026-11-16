@@ -109,15 +109,13 @@ describe("GET /api/status", () => {
 });
 
 describe("GET /api/items", () => {
-  it("lists every item with its current price, unnamed ones last", async () => {
+  it("lists what is on sale now, most listings first", async () => {
     await withApi(await seededDb(), async (get) => {
       const { status, body } = await get("/api/items");
       assert.equal(status, 200);
-      assert.equal(body.total, 3);
+      assert.equal(body.total, 2); // Linen Cloth is not listed now
       assert.equal(body.takenAt, T0 + HOUR);
       assert.deepEqual(body.items, [
-        // Not in the latest snapshot: still listed, no price.
-        { id: LINEN, name: "Linen Cloth", quality: "COMMON", price: null },
         {
           id: PEACEBLOOM,
           name: "Peacebloom",
@@ -131,6 +129,19 @@ describe("GET /api/items", () => {
           price: { minPrice: 7, medianPrice: 7, quantity: 1, qtyAtMin: 1, listingCount: 1 },
         },
       ]);
+    });
+  });
+
+  it("finds items not listed right now when searching, A to Z", async () => {
+    await withApi(await seededDb(), async (get) => {
+      const { body } = await get("/api/items?q=e");
+      assert.deepEqual(
+        body.items.map((i: any) => [i.name, i.price === null]),
+        [
+          ["Linen Cloth", true],
+          ["Peacebloom", false],
+        ],
+      );
     });
   });
 
@@ -158,8 +169,8 @@ describe("GET /api/items", () => {
   it("pages with limit and offset", async () => {
     await withApi(await seededDb(), async (get) => {
       const { body } = await get("/api/items?limit=1&offset=1");
-      assert.deepEqual(body.items.map((i: any) => i.name), ["Peacebloom"]);
-      assert.equal(body.total, 3); // total ignores paging
+      assert.deepEqual(body.items.map((i: any) => i.id), [UNNAMED]);
+      assert.equal(body.total, 2); // total ignores paging
     });
   });
 
@@ -173,8 +184,9 @@ describe("GET /api/items", () => {
 
   it("returns items without prices for a house that has no snapshots", async () => {
     await withApi(await seededDb(), async (get) => {
-      const { body } = await get("/api/items?house=110");
+      const { body } = await get("/api/items?house=110&q=e");
       assert.equal(body.takenAt, null);
+      assert.equal(body.items.length, 2);
       assert.ok(body.items.every((i: any) => i.price === null));
     });
   });

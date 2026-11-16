@@ -506,7 +506,8 @@ export interface RecordResponse {
   ahCut: number
   since: number | null // null = nothing recorded yet
   summary: KindSummary[]
-  recent: Outcome[]
+  recent: Outcome[] // once a day old
+  pending: number // picks not a day old yet
 }
 
 export const recordApi = {

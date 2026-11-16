@@ -244,6 +244,52 @@ function SteepEnding({ plan }: { plan: LevellingResponse }) {
   )
 }
 
+// The server splits steps at 150 and 225 for the bracket totals; one recipe
+// either side of a split reads better as one row.
+function joinSplitSteps(steps: LevelStep[]): LevelStep[] {
+  const joined: LevelStep[] = []
+  for (const step of steps) {
+    const last = joined.at(-1)
+    if (!last || last.spellId !== step.spellId || last.to !== step.from) {
+      joined.push(step)
+      continue
+    }
+    const materials = last.materials.map((m) => ({ ...m }))
+    for (const m of step.materials) {
+      const same = materials.find((other) => other.itemId === m.itemId)
+      if (!same) {
+        materials.push(m)
+        continue
+      }
+      same.quantity += m.quantity
+      same.crafted += m.crafted
+      same.cost += m.cost
+      same.estimated ||= m.estimated
+      if (same.via && m.via) {
+        same.via = {
+          name: same.via.name,
+          quantity: same.via.quantity + m.via.quantity,
+          saves: same.via.saves === null || m.via.saves === null ? null : same.via.saves + m.via.saves,
+        }
+      }
+    }
+    joined[joined.length - 1] = {
+      ...last,
+      to: step.to,
+      crafts: last.crafts + step.crafts,
+      guaranteed: last.guaranteed && step.guaranteed,
+      materials,
+      cost: last.cost + step.cost,
+      stops: [
+        ...last.stops,
+        { skill: last.to, cost: last.cost },
+        ...step.stops.map((stop) => ({ skill: stop.skill, cost: last.cost + stop.cost })),
+      ],
+    }
+  }
+  return joined
+}
+
 function Plan({ plan }: { plan: LevellingResponse }) {
   if (plan.steps.length === 0) {
     return (
@@ -283,7 +329,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-100">Steps</h2>
-        <DataTable rows={plan.steps} columns={STEP_COLUMNS} rowKey={(step) => step.from} />
+        <DataTable rows={joinSplitSteps(plan.steps)} columns={STEP_COLUMNS} rowKey={(step) => step.from} />
         <p className="text-xs text-zinc-500">
           Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more or
           fewer. Trainer fees are not included, and nothing is deducted for selling what you make.

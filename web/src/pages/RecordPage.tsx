@@ -40,8 +40,22 @@ export function RecordPage() {
           </div>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-zinc-100">Recent picks</h2>
-            <DataTable rows={record.data.recent} columns={COLUMNS} rowKey={(outcome) => outcome.id} />
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-medium text-zinc-100">Recent picks, a day later</h2>
+              {record.data.pending > 0 && (
+                <span className="text-xs text-zinc-500">
+                  {formatNumber(record.data.pending)} newer {record.data.pending === 1 ? 'pick is' : 'picks are'} not a
+                  day old yet
+                </span>
+              )}
+            </div>
+            {record.data.recent.length === 0 ? (
+              <EmptyState title="No pick is a day old yet">
+                <p>Each pick is judged 24 hours after it was saved.</p>
+              </EmptyState>
+            ) : (
+              <DataTable rows={record.data.recent} columns={COLUMNS} rowKey={(outcome) => outcome.id} />
+            )}
             <p className="text-xs text-zinc-500">
               Recording since {formatDateTime(record.data.since)}. Each snapshot's top 20 deals and top 20 resets are
               saved, once per item per day. &ldquo;Actual&rdquo; is what you would have made buying as recommended and
@@ -154,7 +168,7 @@ const COLUMNS: Column<Outcome>[] = [
       outcome.actualProfit !== null ? (
         <Signed copper={outcome.actualProfit} />
       ) : (
-        <span className="text-zinc-500">{outcome.status === 'pending' ? 'not a day old' : 'none on sale'}</span>
+        <span className="text-zinc-500">none on sale</span>
       ),
     sortValue: (outcome) => outcome.actualProfit ?? Number.NEGATIVE_INFINITY,
   },
