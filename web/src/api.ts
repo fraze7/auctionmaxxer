@@ -347,7 +347,7 @@ export interface LevelStep {
   cost: number
   stops: Array<{ skill: number; cost: number }> // the step's cost if it ended early at `skill`
   // The plan's item on the auction house; null = never seen there. price null = none listed now.
-  planItem: { itemId: number; price: number | null; listed: number } | null
+  planItem: { itemId: number; price: number | null; listed: number; seen: boolean } | null
 }
 
 export interface LevellingResponse {
@@ -357,6 +357,7 @@ export interface LevellingResponse {
   professions: Array<{ id: string; name: string }>
   helper: { id: string; name: string; skill: number } | null // a second profession that can make reagents
   skipped: Array<{ spellId: number; name: string }> // plans left out on request
+  unavailable: Array<{ spellId: number; name: string }> // dropped plans nobody has listed
   from: number
   to: number
   reached: number

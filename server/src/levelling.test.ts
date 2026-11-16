@@ -450,6 +450,9 @@ describe("GET /api/levelling", () => {
       const skip = await get("?profession=blacksmithing&skip=16656,2660");
       assert.deepEqual(skip.body.skipped, [{ spellId: 16656, name: "Radiant Boots" }]);
       assert.deepEqual(smithing.body.skipped, []);
+      // Dropped plans nobody has listed are left out without being asked.
+      const names = smithing.body.unavailable.map((recipe: { name: string }) => recipe.name);
+      assert.ok(names.includes("Imperial Plate Gauntlets") && !names.includes("Radiant Boots"));
       assert.equal((await get("?skip=abc")).status, 400);
 
       assert.equal((await get("?from=200&to=150")).status, 400);

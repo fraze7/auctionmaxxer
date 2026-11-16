@@ -174,7 +174,23 @@ function SkipPlan({ spellId }: { spellId: number }) {
 
 function SkippedPlans({ plan }: { plan: LevellingResponse }) {
   const [ids, setIds] = useSkippedPlans()
-  if (plan.skipped.length === 0) return null
+  if (plan.skipped.length === 0 && plan.unavailable.length === 0) return null
+  return (
+    <>
+      {plan.unavailable.length > 0 && (
+        <p className="text-sm text-zinc-400">
+          Left out because nobody has listed the plan in the last two weeks:{' '}
+          <span className="text-zinc-200">{plan.unavailable.map((recipe) => recipe.name).join(', ')}</span>. They come
+          back by themselves if one is listed.
+        </p>
+      )}
+      {plan.skipped.length > 0 && <SkippedByHand plan={plan} ids={ids} setIds={setIds} />}
+    </>
+  )
+}
+
+function SkippedByHand(props: { plan: LevellingResponse; ids: number[]; setIds: (ids: number[]) => void }) {
+  const { plan, ids, setIds } = props
   return (
     <p className="text-sm text-zinc-400">
       Left out:{' '}

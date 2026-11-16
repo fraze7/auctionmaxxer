@@ -70,16 +70,25 @@ const FavorQuery = z.object({
 
 const ItemParams = z.object({ id: positiveInt });
 
-
 const LevellingQuery = z
   .object({
     house: houseParam,
-    profession: z.enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering", "enchanting"]).default("alchemy"),
-    from: z.coerce.number().int().min(1).max(MAX_SKILL - 1).default(1),
+    profession: z
+      .enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering", "enchanting"])
+      .default("alchemy"),
+    from: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_SKILL - 1)
+      .default(1),
     to: z.coerce.number().int().min(2).max(MAX_SKILL).default(MAX_SKILL),
     helperSkill: z.coerce.number().int().min(0).max(MAX_SKILL).default(0),
     // Spell IDs of plans to leave out, comma-separated.
-    skip: z.string().regex(/^\d+(,\d+){0,49}$/).optional(),
+    skip: z
+      .string()
+      .regex(/^\d+(,\d+){0,49}$/)
+      .optional(),
   })
   .refine((query) => query.from < query.to, { path: ["to"], message: "must be above from" });
 
@@ -424,17 +433,20 @@ export function createApp(options: ApiOptions): Express {
     // Only bought plans can be skipped: the owner may not have them.
     const wanted = new Set((query.skip ?? "").split(",").map(Number));
     const skipped = base.recipes.filter((recipe) => recipe.plan && wanted.has(recipe.spellId));
-    const kept = { ...base, recipes: base.recipes.filter((recipe) => !skipped.includes(recipe)) };
-    const profession = withHelper(kept, query.helperSkill);
-    const { takenAt, market } = loadMarket(db, houseId, profession);
-    const plan = planLevelling(profession, market, query.from, query.to);
-    // What each bought plan on the route costs, where the auction house has it.
+    // A dropped plan nobody has listed in the stored history cannot be bought, so it is left out too.
     const plans = planPrices(
       db,
       houseId,
-      plan.steps.filter((step) => step.plan).map((step) => step.recipeName),
+      base.recipes.filter((recipe) => recipe.plan).map((recipe) => recipe.name),
     );
-
+    const unavailable = base.recipes.filter(
+      (recipe) => recipe.plan && !skipped.includes(recipe) && plans.get(recipe.name)?.seen === false,
+    );
+    const out = new Set([...skipped, ...unavailable]);
+    const kept = { ...base, recipes: base.recipes.filter((recipe) => !out.has(recipe)) };
+    const profession = withHelper(kept, query.helperSkill);
+    const { takenAt, market } = loadMarket(db, houseId, profession);
+    const plan = planLevelling(profession, market, query.from, query.to);
     res.json({
       house: houseId,
       takenAt,
@@ -442,6 +454,7 @@ export function createApp(options: ApiOptions): Express {
       helper: base.helper ? { id: base.helper.id, name: base.helper.name, skill: query.helperSkill } : null,
       professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
       skipped: skipped.map((recipe) => ({ spellId: recipe.spellId, name: recipe.name })),
+      unavailable: unavailable.map((recipe) => ({ spellId: recipe.spellId, name: recipe.name })),
       ...plan,
       steps: plan.steps.map((step) => ({ ...step, planItem: plans.get(step.recipeName) ?? null })),
     });

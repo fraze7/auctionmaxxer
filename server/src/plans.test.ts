@@ -43,8 +43,13 @@ describe("planPrices", () => {
     ]);
     const prices = planPrices(db, 113, ["Radiant Boots", "Enchant Bracer - Greater Stamina", "Copper Bracers"]);
 
-    assert.deepEqual(prices.get("Radiant Boots"), { itemId: 50, price: 70_000, listed: 2 });
-    assert.deepEqual(prices.get("Enchant Bracer - Greater Stamina"), { itemId: 60, price: 5_000, listed: 1 });
+    assert.deepEqual(prices.get("Radiant Boots"), { itemId: 50, price: 70_000, listed: 2, seen: true });
+    assert.deepEqual(prices.get("Enchant Bracer - Greater Stamina"), {
+      itemId: 60,
+      price: 5_000,
+      listed: 1,
+      seen: true,
+    });
     // No such plan has ever been listed.
     assert.equal(prices.has("Copper Bracers"), false);
   });
@@ -55,6 +60,15 @@ describe("planPrices", () => {
       itemId: 50,
       price: null,
       listed: 0,
+      seen: true,
     });
+  });
+
+  it("knows a few plans by item ID, and whether they have ever been listed", async () => {
+    const never = planPrices(await dbWith([[50, 90_000]]), 113, ["Imperial Plate Gauntlets"]);
+    assert.deepEqual(never.get("Imperial Plate Gauntlets"), { itemId: 251441, price: null, listed: 0, seen: false });
+
+    const listed = planPrices(await dbWith([[251441, 40_000]]), 113, ["Imperial Plate Gauntlets"]);
+    assert.deepEqual(listed.get("Imperial Plate Gauntlets"), { itemId: 251441, price: 40_000, listed: 1, seen: true });
   });
 });
