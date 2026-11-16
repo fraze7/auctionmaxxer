@@ -34,15 +34,15 @@ export function CraftsPage() {
   const onlyMine = hasCrafting && everyone !== '1'
   const canMake = (craft: Craft) => (skills.get(craft.profession.id) ?? 0) >= craft.skill
 
-  // Stackable products, gear, or both.
+  // Stackable products (the default) or gear.
   const [kindText, setKind] = useUrlParam('kind')
-  const kind = KINDS.some((option) => option.id === kindText) ? kindText : ''
+  const kind = kindText === 'gear' ? 'gear' : 'stack'
 
   const options = [{ id: '', name: 'All' }, ...(crafts.data?.professions ?? [])]
   const rows = (crafts.data?.crafts ?? []).filter(
     (craft) =>
       (profession === '' || craft.profession.id === profession) &&
-      (kind === '' || craft.kind === kind) &&
+      craft.kind === kind &&
       (minProfit > 0 ? craft.profit >= minProfit : show === 'all' || craft.profit > 0) &&
       (!onlyMine || canMake(craft)),
   )
@@ -82,7 +82,7 @@ export function CraftsPage() {
               key={option.id}
               type="button"
               aria-pressed={kind === option.id}
-              onClick={() => setKind(option.id)}
+              onClick={() => setKind(option.id === 'stack' ? '' : option.id)}
               className={[
                 'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
                 kind === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
@@ -159,7 +159,6 @@ export function CraftsPage() {
 }
 
 const KINDS = [
-  { id: '', name: 'Everything' },
   { id: 'stack', name: 'Stackable' },
   { id: 'gear', name: 'Gear' },
 ]
