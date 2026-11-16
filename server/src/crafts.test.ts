@@ -53,18 +53,27 @@ describe("findCrafts", () => {
         { spellId: 20, name: "Helm", learn: 5, yellow: 10, grey: 20, makes: { itemId: 40, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
         { spellId: 21, name: "Boots", learn: 5, yellow: 10, grey: 20, makes: { itemId: 41, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
         { spellId: 22, name: "Belt", learn: 5, yellow: 10, grey: 20, makes: { itemId: 42, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
+        { spellId: 23, name: "Cloak", learn: 5, yellow: 10, grey: 20, makes: { itemId: 43, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
+        { spellId: 24, name: "Gloves", learn: 5, yellow: 10, grey: 20, makes: { itemId: 44, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
       ],
     };
     // Herb 10c. Helms listed from 500c; Boots from 120c, but a vendor pays 150c; no Belt listed or vendor price.
-    const db = await dbWith([[1, 10, 1000]], [[40, 900], [40, 500], [41, 120]]);
+    // One Cloak listed at 9000c and a vendor pays 30c; one pair of Gloves listed, no vendor price.
+    const db = await dbWith(
+      [[1, 10, 1000]],
+      [[40, 900], [40, 500], [40, 700], [41, 120], [41, 130], [41, 140], [43, 9000], [44, 9000]],
+    );
     db.prepare("UPDATE items SET sell_price = ? WHERE item_id = ?").run(150, 41);
+    db.prepare("UPDATE items SET sell_price = ? WHERE item_id = ?").run(30, 43);
     const { crafts } = findCrafts(db, 113, [smith], 0.05);
 
     assert.deepEqual(
       crafts.map((c) => [c.name, c.kind, c.cost, c.sale, c.saleTo, c.listed, c.count, c.totalProfit, c.soldPerDay]),
       [
-        ["Helm", "gear", 100, 475, "auction", 2, 1, 375, null],
-        ["Boots", "gear", 100, 150, "vendor", 1, 1, 50, null],
+        ["Helm", "gear", 100, 475, "auction", 3, 1, 375, null],
+        ["Boots", "gear", 100, 150, "vendor", 3, 1, 50, null],
+        // Too few listed to trust, so priced at the vendor; the Gloves have nowhere to sell.
+        ["Cloak", "gear", 100, 30, "vendor", 1, 1, -70, null],
       ],
     );
   });

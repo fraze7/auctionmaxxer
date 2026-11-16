@@ -10,6 +10,8 @@ import { r } from "./recipe.js";
 // exist in Gadgetzan. Plan prices and quest hand-ins are not counted.
 // Left out: other quest plans, reputation plans, specialisation recipes, and
 // Sharpening Wheel (never gives skill).
+// Wowhead marks Blight, Phantom Blade, Truesilver Champion and The Shatterer
+// as Weaponsmith only; the owner confirmed Blight is a normal trainer recipe.
 
 const WEAK_FLUX = 2880;
 const STRONG_FLUX = 3466;

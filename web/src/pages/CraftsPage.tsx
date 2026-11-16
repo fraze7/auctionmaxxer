@@ -146,7 +146,8 @@ export function CraftsPage() {
             {Math.round(crafts.data.ahCut * 100)}% of the sale. Each extra craft buys dearer materials, and the sale
             price will not hold if you flood the market. Materials marked &ldquo;made&rdquo; are cheaper to craft from
             their own inputs than to buy. Gear sells one at a time, so it is priced for a single craft at its cheapest
-            listing, or at what a vendor pays if that is more; with only one or two listed, that price can be far off.
+            listing, or at what a vendor pays if that is more. With fewer than three listed, the listings are ignored
+            and gear is priced at the vendor.
             &ldquo;Sells&rdquo; is a rough estimate from cheap listings disappearing between hourly snapshots: fast is
             100 or more a day, steady 10 or more, slow fewer.
           </p>
@@ -244,9 +245,10 @@ const COLUMNS: Column<Craft>[] = [
         <ProductLink craft={craft} className="hover:underline">
           <PriceTag copper={craft.sale} />
         </ProductLink>
-        {craft.saleTo === 'vendor' && <span className="block text-xs text-zinc-500">to a vendor</span>}
-        {craft.kind === 'gear' && craft.saleTo === 'auction' && craft.listed < 3 && (
-          <span className="block text-xs text-amber-400">only {craft.listed} listed</span>
+        {craft.saleTo === 'vendor' && (
+          <span className="block text-xs text-zinc-500">
+            to a vendor{craft.kind === 'gear' && craft.listed > 0 && craft.listed < 3 && ` (${craft.listed} listed)`}
+          </span>
         )}
       </span>
     ),

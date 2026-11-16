@@ -16,6 +16,10 @@ import { loadMarket, type Profession, type Recipe } from "./levelling.js";
 // The most crafts worked out for one recipe.
 const MAX_COUNT = 1000;
 
+// Gear with fewer listings is priced at what a vendor pays: one or two
+// listings are often asking prices nobody pays.
+export const MIN_GEAR_LISTINGS = 3;
+
 export interface CraftMaterial {
   itemId: number;
   name: string;
@@ -170,7 +174,8 @@ export function findCrafts(
       if (recipe.makes.quantity === 0) continue;
       const product = prices.get(recipe.makes.itemId);
       const gear = product ? undefined : gearOf.get({ itemId: recipe.makes.itemId, snapshotId: snapshot.id });
-      const gearSale = gear ? Math.floor((gear.minBuyout ?? 0) * (1 - ahCut)) : 0;
+      const gearSale =
+        gear && (gear.listed ?? 0) >= MIN_GEAR_LISTINGS ? Math.floor((gear.minBuyout ?? 0) * (1 - ahCut)) : 0;
       const vendorSale = gear?.sellPrice ?? 0;
       if (!product && gearSale <= 0 && vendorSale <= 0) continue; // not on sale and no vendor price
 
