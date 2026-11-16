@@ -19,6 +19,7 @@ import { BLACKSMITHING } from "./professions/blacksmithing.js";
 import { ENCHANTING } from "./professions/enchanting.js";
 import { ENGINEERING } from "./professions/engineering.js";
 import { LEATHERWORKING } from "./professions/leatherworking.js";
+import { SMELTING } from "./professions/mining.js";
 import { TAILORING } from "./professions/tailoring.js";
 import type { CommodityListing } from "./types.js";
 
@@ -462,6 +463,22 @@ describe(`the ${PROFESSION.id} recipes`, () => {
 });
 }
 
+describe("the mining recipes", () => {
+  it("level by smelting to 185, with a free step for mining nodes at 140-155", () => {
+    const everything: Market = new Map(
+      Object.keys(SMELTING.itemNames).map((id) => [Number(id), { book: [{ unitPrice: 100, quantity: 1_000_000 }], exactUnits: 1_000_000 }]),
+    );
+    const plan = planLevelling(SMELTING, everything, 1, MAX_SKILL);
+    assert.equal(plan.complete, false);
+    assert.equal(plan.reached, 185);
+    const nodes = plan.steps.filter((step) => step.spellId === 0);
+    assert.deepEqual([nodes[0]?.from, nodes.at(-1)?.to, nodes.reduce((sum, step) => sum + step.cost, 0)], [140, 155, 0]);
+    for (const r of SMELTING.recipes) {
+      for (const reagent of r.reagents) assert.ok(SMELTING.itemNames[reagent.itemId], `${r.name}: item ${reagent.itemId} has no name`);
+    }
+  });
+});
+
 describe("GET /api/levelling", () => {
   it("returns a plan and rejects a bad range", async () => {
     const { createApp } = await import("./api.js");
@@ -481,7 +498,7 @@ describe("GET /api/levelling", () => {
 
       const smithing = await get("?profession=blacksmithing");
       assert.equal(smithing.body.profession.name, "Blacksmithing");
-      assert.equal(smithing.body.professions.length, 6);
+      assert.equal(smithing.body.professions.length, 7);
 
       assert.deepEqual(smithing.body.helper, { id: "mining", name: "Mining", skill: 0 });
       assert.equal((await get("?profession=blacksmithing&helperSkill=300")).body.helper.skill, 300);

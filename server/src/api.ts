@@ -74,7 +74,7 @@ const LevellingQuery = z
   .object({
     house: houseParam,
     profession: z
-      .enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering", "enchanting"])
+      .enum(["alchemy", "blacksmithing", "tailoring", "leatherworking", "engineering", "enchanting", "mining"])
       .default("alchemy"),
     from: z.coerce
       .number()

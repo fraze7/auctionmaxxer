@@ -36,8 +36,10 @@ describe("the character profile", () => {
     assert.equal(canMake(smith, "blacksmithing", 151), false);
     assert.equal(canMake(smith, "alchemy", 1), false);
 
-    // Mining alone is not a crafting profession, so there is still nothing to filter by.
-    assert.equal(canMake(new Map([["mining", 300]]), "alchemy", 300), true);
+    // Mining counts too, for its smelting.
+    const miner = new Map([["mining", 200]]);
+    assert.equal(canMake(miner, "mining", 165), true);
+    assert.equal(canMake(miner, "alchemy", 1), false);
   });
 
   it("is read and saved through the API", async () => {

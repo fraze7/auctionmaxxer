@@ -5,6 +5,7 @@ import { findCrafts } from "./crafts.js";
 import type { DataSource } from "./dataSource.js";
 import { openDb } from "./db.js";
 import type { Profession } from "./levelling.js";
+import { SMELTING } from "./professions/mining.js";
 import type { CommodityListing } from "./types.js";
 
 // Items: 1 herb, 2 oil (made from 2 herbs), 3 potion (1 oil + 1 vial), 9 vendor vial (5c).
@@ -141,6 +142,21 @@ describe("findCrafts", () => {
     db.prepare("INSERT INTO items (item_id, first_seen, sell_price) VALUES (2, 0, 30)").run();
     const oil = findCrafts(db, 113, [TEST], 0.05).crafts.find((c) => c.name === "Oil");
     assert.deepEqual([oil?.kind, oil?.sale, oil?.saleTo, oil?.listed], ["stack", 30, "vendor", 0]);
+  });
+
+  it("prices smelting, making bars from ore and buying coal from a vendor", async () => {
+    // Copper Ore 10c, Tin Ore 20c, Iron Ore 30c; Bronze Bar 100c, Steel Bar 600c.
+    const db = await dbWith([[2770, 10, 100], [2771, 20, 100], [2772, 30, 100], [2841, 100, 50], [3859, 600, 50]]);
+    const smelts = findCrafts(db, 113, [SMELTING], 0.05).crafts;
+    const bronze = smelts.find((c) => c.name === "Smelt Bronze");
+    const steel = smelts.find((c) => c.name === "Smelt Steel");
+    assert.deepEqual([bronze?.cost, bronze?.sale, bronze?.materials.map((m) => m.source)], [30, 190, ["crafted", "crafted"]]);
+    assert.deepEqual([steel?.cost, steel?.sale, steel?.materials.map((m) => [m.name, m.unitCost, m.source])], [
+      435,
+      570,
+      [["Iron Bar", 30, "crafted"], ["Coal", 405, "vendor"]],
+    ]);
+    assert.equal(smelts.some((c) => c.spellId === 0), false); // the mining-nodes step makes nothing
   });
 
   it("leaves out crafts with no product on sale or a missing material", async () => {

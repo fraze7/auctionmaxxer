@@ -12,7 +12,15 @@ import { toWholeNumber, useUrlParam } from '../useUrlParam.ts'
 // The cheapest way to level a profession at current prices. The route is
 // worked out on the server (server/src/levelling.ts).
 
-const PROFESSION_IDS = ['alchemy', 'blacksmithing', 'tailoring', 'leatherworking', 'engineering', 'enchanting']
+const PROFESSION_IDS = [
+  'alchemy',
+  'blacksmithing',
+  'tailoring',
+  'leatherworking',
+  'engineering',
+  'enchanting',
+  'mining',
+]
 
 export function LevellingPage() {
   // The saved character sets the defaults; the URL overrides them.
@@ -292,6 +300,13 @@ function joinSplitSteps(steps: LevelStep[]): LevelStep[] {
 }
 
 function Plan({ plan }: { plan: LevellingResponse }) {
+  if (plan.steps.length === 0 && plan.profession.id === 'mining') {
+    return (
+      <EmptyState title="Nothing to smelt for skill">
+        <p>Smelting gives no skill from {plan.from}; the rest comes from mining nodes.</p>
+      </EmptyState>
+    )
+  }
   if (plan.steps.length === 0) {
     return (
       <EmptyState title="No route right now">
@@ -300,24 +315,29 @@ function Plan({ plan }: { plan: LevellingResponse }) {
     )
   }
 
+  // A route that stops early (Mining at 185) leaves later brackets empty.
+  const reachedBrackets = plan.brackets.filter((bracket) => bracket.from < plan.reached)
+
   return (
     <>
       {!plan.complete && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/60 px-4 py-3 text-sm text-amber-200">
           {plan.tooDear
             ? `The route stops at skill ${plan.reached}: the only recipes the auction house can supply from there cost over ten times more per point.`
-            : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
+            : plan.profession.id === 'mining'
+              ? `Smelting stops giving skill at ${plan.reached}; the rest comes from mining nodes.`
+              : `The auction house runs out of materials at skill ${plan.reached}.`}{' '}
           The costs below only cover {plan.from} to {plan.reached}.
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {plan.brackets.map((bracket) => (
+        {reachedBrackets.map((bracket) => (
           <Tile key={bracket.from} label={`${bracket.from} to ${bracket.to}`} partial={!bracket.complete}>
             <PriceTag copper={bracket.cost} />
           </Tile>
         ))}
-        {plan.brackets.length > 1 && (
+        {reachedBrackets.length > 1 && (
           <Tile label={`Total, ${plan.from} to ${plan.reached}`} partial={!plan.complete}>
             <PriceTag copper={plan.totalCost} />
           </Tile>
@@ -326,8 +346,7 @@ function Plan({ plan }: { plan: LevellingResponse }) {
 
       {plan.totalSells > 0 && (
         <p className="text-sm text-zinc-400">
-          Selling what you make to a vendor brings back <PriceTag copper={plan.totalSells} />, so the route really
-          costs{' '}
+          Selling what you make to a vendor brings back <PriceTag copper={plan.totalSells} />, so the route really costs{' '}
           <span className="text-zinc-100">
             <PriceTag copper={plan.totalCost - plan.totalSells} />
           </span>
@@ -381,39 +400,42 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
   {
     key: 'craft',
     header: 'Craft',
-    render: (step) => (
-      <span className="whitespace-nowrap">
-        <span className="tabular text-zinc-400">
-          {step.guaranteed ? '' : '~'}
-          {formatNumber(step.crafts)} ×
-        </span>{' '}
-        <a
-          href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-zinc-100 hover:underline"
-        >
-          {step.recipeName}
-        </a>
-        {step.plan && (
-          <>
-            <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
-            <SkipPlan spellId={step.spellId} />
-            {step.planItem && (
-              <span className="block text-xs text-zinc-500">
-                {step.planItem.price === null ? (
-                  'plan not on the auction house right now'
-                ) : (
-                  <>
-                    plan from <PriceTag copper={step.planItem.price} /> ({formatNumber(step.planItem.listed)} listed)
-                  </>
-                )}
-              </span>
-            )}
-          </>
-        )}
-      </span>
-    ),
+    render: (step) =>
+      step.spellId === 0 ? (
+        <span className="text-zinc-400">{step.recipeName}</span>
+      ) : (
+        <span className="whitespace-nowrap">
+          <span className="tabular text-zinc-400">
+            {step.guaranteed ? '' : '~'}
+            {formatNumber(step.crafts)} ×
+          </span>{' '}
+          <a
+            href={`https://www.wowhead.com/forever/spell=${step.spellId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-zinc-100 hover:underline"
+          >
+            {step.recipeName}
+          </a>
+          {step.plan && (
+            <>
+              <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+              <SkipPlan spellId={step.spellId} />
+              {step.planItem && (
+                <span className="block text-xs text-zinc-500">
+                  {step.planItem.price === null ? (
+                    'plan not on the auction house right now'
+                  ) : (
+                    <>
+                      plan from <PriceTag copper={step.planItem.price} /> ({formatNumber(step.planItem.listed)} listed)
+                    </>
+                  )}
+                </span>
+              )}
+            </>
+          )}
+        </span>
+      ),
   },
   {
     key: 'materials',
