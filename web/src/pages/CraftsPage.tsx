@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { craftsApi, type Craft } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
@@ -33,10 +34,15 @@ export function CraftsPage() {
   const onlyMine = hasCrafting && everyone !== '1'
   const canMake = (craft: Craft) => (skills.get(craft.profession.id) ?? 0) >= craft.skill
 
+  // Stackable products, gear, or both.
+  const [kindText, setKind] = useUrlParam('kind')
+  const kind = KINDS.some((option) => option.id === kindText) ? kindText : ''
+
   const options = [{ id: '', name: 'All' }, ...(crafts.data?.professions ?? [])]
   const rows = (crafts.data?.crafts ?? []).filter(
     (craft) =>
       (profession === '' || craft.profession.id === profession) &&
+      (kind === '' || craft.kind === kind) &&
       (minProfit > 0 ? craft.profit >= minProfit : show === 'all' || craft.profit > 0) &&
       (!onlyMine || canMake(craft)),
   )
@@ -70,6 +76,22 @@ export function CraftsPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div className="flex rounded-md border border-zinc-700 text-sm">
+          {KINDS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={kind === option.id}
+              onClick={() => setKind(option.id)}
+              className={[
+                'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
+                kind === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
+              ].join(' ')}
+            >
+              {option.name}
+            </button>
+          ))}
+        </div>
         <label className="block text-xs text-zinc-400">
           Profit of at least (silver)
           <input
@@ -123,7 +145,8 @@ export function CraftsPage() {
             Cost, Sells for and Profit are for one craft, after the auction house keeps{' '}
             {Math.round(crafts.data.ahCut * 100)}% of the sale. Each extra craft buys dearer materials, and the sale
             price will not hold if you flood the market. Materials marked &ldquo;made&rdquo; are cheaper to craft from
-            their own inputs than to buy. Only products sold in stacks are tracked, so crafted gear is not listed.
+            their own inputs than to buy. Gear sells one at a time, so it is priced for a single craft at its cheapest
+            listing, or at what a vendor pays if that is more; with only one or two listed, that price can be far off.
             &ldquo;Sells&rdquo; is a rough estimate from cheap listings disappearing between hourly snapshots: fast is
             100 or more a day, steady 10 or more, slow fewer.
           </p>
@@ -133,15 +156,45 @@ export function CraftsPage() {
   )
 }
 
+const KINDS = [
+  { id: '', name: 'Everything' },
+  { id: 'stack', name: 'Stackable' },
+  { id: 'gear', name: 'Gear' },
+]
+
+// Gear has no price history on the site, so it links to Wowhead instead.
+function ProductLink({ craft, className, children }: { craft: Craft; className: string; children: ReactNode }) {
+  if (craft.kind === 'stack') {
+    return (
+      <Link to={`/item/${craft.productId}`} className={className}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <a
+      href={`https://www.wowhead.com/forever/item=${craft.productId}`}
+      target="_blank"
+      rel="noreferrer"
+      className={className}
+    >
+      {children}
+    </a>
+  )
+}
+
 const COLUMNS: Column<Craft>[] = [
   {
     key: 'craft',
     header: 'Craft',
     render: (craft) => (
       <span className="whitespace-nowrap">
-        <Link to={`/item/${craft.productId}`} className="text-zinc-100 hover:underline">
+        <ProductLink craft={craft} className="text-zinc-100 hover:underline">
           {craft.name}
-        </Link>
+        </ProductLink>
+        {craft.kind === 'gear' && (
+          <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">gear</span>
+        )}
         {craft.makes > 1 && <span className="tabular text-zinc-500"> ×{formatNumber(craft.makes)}</span>}
         {craft.plan && (
           <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
@@ -187,9 +240,15 @@ const COLUMNS: Column<Craft>[] = [
     header: 'Sells for',
     align: 'right',
     render: (craft) => (
-      <Link to={`/item/${craft.productId}`} className="hover:underline">
-        <PriceTag copper={craft.sale} />
-      </Link>
+      <span className="whitespace-nowrap">
+        <ProductLink craft={craft} className="hover:underline">
+          <PriceTag copper={craft.sale} />
+        </ProductLink>
+        {craft.saleTo === 'vendor' && <span className="block text-xs text-zinc-500">to a vendor</span>}
+        {craft.kind === 'gear' && craft.saleTo === 'auction' && craft.listed < 3 && (
+          <span className="block text-xs text-amber-400">only {craft.listed} listed</span>
+        )}
+      </span>
     ),
     sortValue: (craft) => craft.sale,
   },

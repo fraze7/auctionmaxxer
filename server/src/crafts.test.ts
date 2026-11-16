@@ -21,7 +21,7 @@ const TEST: Profession = {
   itemNames: { 1: "Herb", 2: "Oil", 3: "Potion", 9: "Vial" },
 };
 
-async function dbWith(listings: Array<[number, number, number]>) {
+async function dbWith(listings: Array<[number, number, number]>, gear: Array<[number, number]> = []) {
   const db = openDb(":memory:");
   let id = 1;
   const commodities: CommodityListing[] = listings.map(([itemId, unitPrice, quantity]) => ({
@@ -34,13 +34,41 @@ async function dbWith(listings: Array<[number, number, number]>) {
   const source: DataSource = {
     listHouses: async () => [],
     getItem: async () => null,
-    fetchSnapshot: async () => ({ houseId: 113, takenAt: 1000, items: [], commodities }),
+    fetchSnapshot: async () => ({
+      houseId: 113,
+      takenAt: 1000,
+      items: gear.map(([itemId, buyout]) => ({ id: id++, item: { id: itemId }, quantity: 1, buyout, time_left: "LONG" as const })),
+      commodities,
+    }),
   };
   await collectOnce({ db, source, rulesetId: 1, houseId: 113 });
   return db;
 }
 
 describe("findCrafts", () => {
+  it("prices gear from its cheapest listing, or a vendor when that pays more", async () => {
+    const smith: Profession = {
+      ...TEST,
+      recipes: [
+        { spellId: 20, name: "Helm", learn: 5, yellow: 10, grey: 20, makes: { itemId: 40, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
+        { spellId: 21, name: "Boots", learn: 5, yellow: 10, grey: 20, makes: { itemId: 41, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
+        { spellId: 22, name: "Belt", learn: 5, yellow: 10, grey: 20, makes: { itemId: 42, quantity: 1 }, reagents: [{ itemId: 1, quantity: 10 }] },
+      ],
+    };
+    // Herb 10c. Helms listed from 500c; Boots from 120c, but a vendor pays 150c; no Belt listed or vendor price.
+    const db = await dbWith([[1, 10, 1000]], [[40, 900], [40, 500], [41, 120]]);
+    db.prepare("UPDATE items SET sell_price = ? WHERE item_id = ?").run(150, 41);
+    const { crafts } = findCrafts(db, 113, [smith], 0.05);
+
+    assert.deepEqual(
+      crafts.map((c) => [c.name, c.kind, c.cost, c.sale, c.saleTo, c.listed, c.count, c.totalProfit, c.soldPerDay]),
+      [
+        ["Helm", "gear", 100, 475, "auction", 2, 1, 375, null],
+        ["Boots", "gear", 100, 150, "vendor", 1, 1, 50, null],
+      ],
+    );
+  });
+
   it("prices a craft from its materials and the sale after the AH cut", async () => {
     // Herb 10c, Oil 50c to buy (20c to make), Potion sells at 100c.
     const db = await dbWith([[1, 10, 100], [2, 50, 100], [3, 100, 40]]);

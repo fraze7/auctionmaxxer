@@ -8,8 +8,10 @@ import { loadMarket, type Profession, type Recipe } from "./levelling.js";
 // order book for each material, so each craft costs a little more; `count` is
 // how many are worth making: until a craft costs more than it sells for, and
 // no more than about a day's estimated sales. The sale price stays at the
-// current cheapest: nothing here knows how far selling would push it down. Only products sold as commodities
-// can be priced; crafted gear is not tracked.
+// current cheapest: nothing here knows how far selling would push it down.
+// Gear (sold one at a time) is priced from its cheapest listing or what a
+// vendor pays, whichever is more, for a single craft: one more on the market
+// is all a gear listing can be expected to sell.
 
 // The most crafts worked out for one recipe.
 const MAX_COUNT = 1000;
@@ -23,6 +25,7 @@ export interface CraftMaterial {
 }
 
 export interface Craft {
+  kind: "stack" | "gear";
   profession: { id: string; name: string };
   spellId: number;
   name: string;
@@ -34,8 +37,9 @@ export interface Craft {
   materials: CraftMaterial[];
   cost: number; // materials for one craft
   sale: number; // what one craft sells for, after the AH cut
+  saleTo: "auction" | "vendor"; // gear can be worth more to a vendor than on the auction house
   profit: number;
-  listed: number; // units of the product on sale now
+  listed: number; // units of the product on sale now (listings, for gear)
   count: number; // crafts the totals are for
   totalCost: number;
   totalProfit: number;
@@ -84,6 +88,16 @@ export function findCrafts(
     )
     .all(snapshot.id);
   for (const row of rows) prices.set(row.itemId, row);
+
+  const gearOf = db.prepare<
+    { itemId: number; snapshotId: number },
+    { name: string | null; sellPrice: number | null; minBuyout: number | null; listed: number | null }
+  >(`
+    SELECT i.name, i.sell_price AS sellPrice, p.min_buyout AS minBuyout, p.listing_count AS listed
+    FROM items i
+    LEFT JOIN item_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
+    WHERE i.item_id = @itemId
+  `);
 
   const sales = estimateSales(db, houseId);
   const crafts: Craft[] = [];
@@ -153,8 +167,12 @@ export function findCrafts(
     };
 
     for (const recipe of profession.recipes) {
+      if (recipe.makes.quantity === 0) continue;
       const product = prices.get(recipe.makes.itemId);
-      if (!product || recipe.makes.quantity === 0) continue;
+      const gear = product ? undefined : gearOf.get({ itemId: recipe.makes.itemId, snapshotId: snapshot.id });
+      const gearSale = gear ? Math.floor((gear.minBuyout ?? 0) * (1 - ahCut)) : 0;
+      const vendorSale = gear?.sellPrice ?? 0;
+      if (!product && gearSale <= 0 && vendorSale <= 0) continue; // not on sale and no vendor price
 
       const materials: CraftMaterial[] = [];
       for (const reagent of recipe.reagents) {
@@ -174,6 +192,35 @@ export function findCrafts(
       if (materials.length < recipe.reagents.length) continue; // a material is not on sale
 
       const cost = materials.reduce((sum, m) => sum + m.unitCost * m.quantity, 0);
+      if (!product) {
+        crafts.push({
+          kind: "gear",
+          profession: { id: profession.id, name: profession.name },
+          spellId: recipe.spellId,
+          name: recipe.name,
+          skill: recipe.learn,
+          plan: recipe.plan ?? false,
+          productId: recipe.makes.itemId,
+          // Many items new to Forever have no name from Blizzard; the recipe's name is the item's.
+          productName: gear?.name ?? recipe.name,
+          makes: 1,
+          materials,
+          cost,
+          sale: Math.max(gearSale, vendorSale),
+          saleTo: vendorSale > gearSale ? "vendor" : "auction",
+          profit: Math.max(gearSale, vendorSale) - cost,
+          listed: gear?.listed ?? 0,
+          count: 1,
+          totalCost: cost,
+          totalProfit: Math.max(gearSale, vendorSale) - cost,
+          limited: false,
+          heldBy: null,
+          estimated: false,
+          soldPerDay: null,
+        });
+        continue;
+      }
+
       const sale = Math.floor(product.minPrice * recipe.makes.quantity * (1 - ahCut));
 
       const soldPerDay = sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(recipe.makes.itemId) ?? 0) : null;
@@ -202,6 +249,7 @@ export function findCrafts(
       count = Math.max(count, 1);
 
       crafts.push({
+        kind: "stack",
         profession: { id: profession.id, name: profession.name },
         spellId: recipe.spellId,
         name: recipe.name,
@@ -213,6 +261,7 @@ export function findCrafts(
         materials,
         cost,
         sale,
+        saleTo: "auction",
         profit: sale - cost,
         listed: product.quantity,
         count,

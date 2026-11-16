@@ -377,6 +377,7 @@ export const levellingApi = {
 // --- Crafts ---
 
 export interface Craft {
+  kind: 'stack' | 'gear' // gear is sold one at a time
   profession: { id: string; name: string }
   spellId: number
   name: string
@@ -394,6 +395,7 @@ export interface Craft {
   }>
   cost: number
   sale: number // one craft, after the AH cut
+  saleTo: 'auction' | 'vendor'
   profit: number
   listed: number
   count: number // crafts the totals are for
