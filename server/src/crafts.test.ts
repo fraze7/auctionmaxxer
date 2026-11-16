@@ -127,6 +127,22 @@ describe("findCrafts", () => {
     assert.deepEqual([oil(8)?.count, oil(8)?.totalCost, oil(8)?.limited], [5, 220, true]);
   });
 
+  it("sells to a vendor when it pays more, with no limit from a day's sales", async () => {
+    // Oil: 95c on the auction house after the cut, but a vendor pays 120c. Herbs at 10c.
+    const db = await dbWith([[1, 10, 1000], [2, 100, 50]]);
+    db.prepare("UPDATE items SET sell_price = 120 WHERE item_id = 2").run();
+    const oil = findCrafts(db, 113, [TEST], 0.05).crafts.find((c) => c.name === "Oil");
+    assert.deepEqual([oil?.sale, oil?.saleTo, oil?.profit, oil?.heldBy], [120, "vendor", 100, "materials"]);
+    assert.equal(oil?.count, 500); // every herb listed
+  });
+
+  it("prices a commodity nobody has listed right now at its vendor price", async () => {
+    const db = await dbWith([[1, 10, 1000]]);
+    db.prepare("INSERT INTO items (item_id, first_seen, sell_price) VALUES (2, 0, 30)").run();
+    const oil = findCrafts(db, 113, [TEST], 0.05).crafts.find((c) => c.name === "Oil");
+    assert.deepEqual([oil?.kind, oil?.sale, oil?.saleTo, oil?.listed], ["stack", 30, "vendor", 0]);
+  });
+
   it("leaves out crafts with no product on sale or a missing material", async () => {
     const db = await dbWith([[1, 10, 100]]);
     assert.deepEqual(findCrafts(db, 113, [TEST], 0.05).crafts, []);

@@ -145,7 +145,8 @@ export function CraftsPage() {
             Cost, Sells for and Profit are for one craft, after the auction house keeps{' '}
             {Math.round(crafts.data.ahCut * 100)}% of the sale. Each extra craft buys dearer materials, and the sale
             price will not hold if you flood the market. Materials marked &ldquo;made&rdquo; are cheaper to craft from
-            their own inputs than to buy. Gear sells one at a time, so it is priced for a single craft at its cheapest
+            their own inputs than to buy. Where a vendor pays more than the auction house, the sale is to a vendor
+            (&ldquo;to a vendor&rdquo;), which takes any number. Gear sells one at a time, so it is priced for a single craft at its cheapest
             listing, or at what a vendor pays if that is more. With fewer than three listed, the listings are ignored
             and gear is priced at the vendor.
             &ldquo;Sells&rdquo; is a rough estimate from cheap listings disappearing between hourly snapshots: fast is

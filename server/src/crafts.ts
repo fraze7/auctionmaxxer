@@ -9,6 +9,7 @@ import { loadMarket, type Profession, type Recipe } from "./levelling.js";
 // how many are worth making: until a craft costs more than it sells for, and
 // no more than about a day's estimated sales. The sale price stays at the
 // current cheapest: nothing here knows how far selling would push it down.
+// Where a vendor pays more, the sale is to a vendor, with no day's-sales limit.
 // Gear (sold one at a time) is priced from its cheapest listing or what a
 // vendor pays, whichever is more, for a single craft: one more on the market
 // is all a gear listing can be expected to sell.
@@ -41,7 +42,7 @@ export interface Craft {
   materials: CraftMaterial[];
   cost: number; // materials for one craft
   sale: number; // what one craft sells for, after the AH cut
-  saleTo: "auction" | "vendor"; // gear can be worth more to a vendor than on the auction house
+  saleTo: "auction" | "vendor"; // a vendor pays more than the auction house, after its cut
   profit: number;
   listed: number; // units of the product on sale now (listings, for gear)
   count: number; // crafts the totals are for
@@ -80,11 +81,12 @@ export function findCrafts(
     .get(houseId);
   if (!snapshot) return { takenAt: null, crafts: [] };
 
-  const prices = new Map<number, { minPrice: number; quantity: number; name: string | null }>();
+  type Price = { minPrice: number; quantity: number; name: string | null; sellPrice: number | null };
+  const prices = new Map<number, Price>();
   const rows = db
-    .prepare<[number], { itemId: number; minPrice: number; quantity: number; name: string | null }>(
+    .prepare<[number], Price & { itemId: number }>(
       `
-      SELECT p.item_id AS itemId, p.min_price AS minPrice, p.quantity, i.name
+      SELECT p.item_id AS itemId, p.min_price AS minPrice, p.quantity, i.name, i.sell_price AS sellPrice
       FROM commodity_prices p
       LEFT JOIN items i ON i.item_id = p.item_id
       WHERE p.snapshot_id = ?
@@ -95,9 +97,9 @@ export function findCrafts(
 
   const gearOf = db.prepare<
     { itemId: number; snapshotId: number },
-    { name: string | null; sellPrice: number | null; minBuyout: number | null; listed: number | null }
+    { name: string | null; kind: string; sellPrice: number | null; minBuyout: number | null; listed: number | null }
   >(`
-    SELECT i.name, i.sell_price AS sellPrice, p.min_buyout AS minBuyout, p.listing_count AS listed
+    SELECT i.name, i.kind, i.sell_price AS sellPrice, p.min_buyout AS minBuyout, p.listing_count AS listed
     FROM items i
     LEFT JOIN item_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
     WHERE i.item_id = @itemId
@@ -197,7 +199,8 @@ export function findCrafts(
       if (materials.length < recipe.reagents.length) continue; // a material is not on sale
 
       const cost = materials.reduce((sum, m) => sum + m.unitCost * m.quantity, 0);
-      if (!product) {
+      // A commodity not listed right now can still go to a vendor.
+      if (!product && gear?.kind !== "commodity") {
         crafts.push({
           kind: "gear",
           profession: { id: profession.id, name: profession.name },
@@ -226,7 +229,10 @@ export function findCrafts(
         continue;
       }
 
-      const sale = Math.floor(product.minPrice * recipe.makes.quantity * (1 - ahCut));
+      const auctionSale = product ? Math.floor(product.minPrice * recipe.makes.quantity * (1 - ahCut)) : 0;
+      const vendorPays = ((product ? product.sellPrice : gear?.sellPrice) ?? 0) * recipe.makes.quantity;
+      const toVendor = vendorPays > auctionSale;
+      const sale = Math.max(auctionSale, vendorPays);
 
       const soldPerDay = sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(recipe.makes.itemId) ?? 0) : null;
       let count: number;
@@ -241,8 +247,8 @@ export function findCrafts(
           return upTo !== null && before !== null && upTo.cost - before.cost < sale;
         });
         if (count < MAX_COUNT) heldBy = "materials";
-        // No point making more than sell in a day.
-        if (soldPerDay !== null) {
+        // No point making more than sell in a day; a vendor takes any number.
+        if (soldPerDay !== null && !toVendor) {
           const aDaysSales = Math.max(1, Math.floor(soldPerDay / recipe.makes.quantity));
           if (aDaysSales < count) {
             count = aDaysSales;
@@ -261,14 +267,15 @@ export function findCrafts(
         skill: recipe.learn,
         plan: recipe.plan ?? false,
         productId: recipe.makes.itemId,
-        productName: product.name ?? profession.itemNames[recipe.makes.itemId] ?? `Item #${recipe.makes.itemId}`,
+        productName:
+          product?.name ?? gear?.name ?? profession.itemNames[recipe.makes.itemId] ?? `Item #${recipe.makes.itemId}`,
         makes: recipe.makes.quantity,
         materials,
         cost,
         sale,
-        saleTo: "auction",
+        saleTo: toVendor ? "vendor" : "auction",
         profit: sale - cost,
-        listed: product.quantity,
+        listed: product?.quantity ?? 0,
         count,
         totalCost: total.cost,
         totalProfit: sale * count - total.cost,
