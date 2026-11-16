@@ -280,6 +280,7 @@ function joinSplitSteps(steps: LevelStep[]): LevelStep[] {
       guaranteed: last.guaranteed && step.guaranteed,
       materials,
       cost: last.cost + step.cost,
+      sells: last.sells + step.sells,
       stops: [
         ...last.stops,
         { skill: last.to, cost: last.cost },
@@ -323,6 +324,16 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         )}
       </div>
 
+      {plan.totalSells > 0 && (
+        <p className="text-sm text-zinc-400">
+          Selling what you make to a vendor brings back <PriceTag copper={plan.totalSells} />, so the route really
+          costs{' '}
+          <span className="text-zinc-100">
+            <PriceTag copper={plan.totalCost - plan.totalSells} />
+          </span>
+          . Recipes are chosen with that counted.
+        </p>
+      )}
       <SteepEnding plan={plan} />
       <SkippedPlans plan={plan} />
       <PlanCosts plan={plan} />
@@ -332,7 +343,8 @@ function Plan({ plan }: { plan: LevellingResponse }) {
         <DataTable rows={joinSplitSteps(plan.steps)} columns={STEP_COLUMNS} rowKey={(step) => step.from} />
         <p className="text-xs text-zinc-500">
           Crafts marked ~ are an average: those recipes no longer give a point every time, so you may need a few more or
-          fewer. Trainer fees are not included, and nothing is deducted for selling what you make.
+          fewer. Trainer fees are not included. &ldquo;Back&rdquo; is what a vendor pays for what the step makes;
+          auction prices are not counted.
           {plan.steps.some((step) => step.plan) &&
             ' Recipes marked "plan" are learned from plans bought from a vendor or the auction house, or earned from a quest, not from a trainer; what the plan costs is not included.'}
         </p>
@@ -436,7 +448,21 @@ const STEP_COLUMNS: Column<LevelStep>[] = [
       </span>
     ),
   },
-  { key: 'cost', header: 'Cost', align: 'right', render: (step) => <PriceTag copper={step.cost} /> },
+  {
+    key: 'cost',
+    header: 'Cost',
+    align: 'right',
+    render: (step) => (
+      <span className="whitespace-nowrap">
+        <PriceTag copper={step.cost} />
+        {step.sells > 0 && (
+          <span className="block text-xs text-zinc-500">
+            <PriceTag copper={step.sells} /> back
+          </span>
+        )}
+      </span>
+    ),
+  },
 ]
 
 const SHOPPING_COLUMNS: Column<LevelMaterial>[] = [

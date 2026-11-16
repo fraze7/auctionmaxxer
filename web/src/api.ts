@@ -345,6 +345,7 @@ export interface LevelStep {
   plan: boolean // needs a bought plan, not a trainer
   materials: LevelMaterial[]
   cost: number
+  sells: number // what a vendor pays for what the step makes
   stops: Array<{ skill: number; cost: number }> // the step's cost if it ended early at `skill`
   // The plan's item on the auction house; null = never seen there. price null = none listed now.
   planItem: { itemId: number; price: number | null; listed: number; seen: boolean } | null
@@ -364,6 +365,7 @@ export interface LevellingResponse {
   complete: boolean
   tooDear: boolean // stopped on price, not for lack of materials
   totalCost: number
+  totalSells: number // selling what the route makes to a vendor
   brackets: Array<{ from: number; to: number; cost: number; complete: boolean }>
   steps: LevelStep[]
   shopping: LevelMaterial[]

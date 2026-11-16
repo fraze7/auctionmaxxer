@@ -92,6 +92,7 @@ export interface LevelStep {
   plan: boolean;
   materials: StepMaterial[];
   cost: number;
+  sells: number; // what a vendor pays for what the step makes; 0 when a later recipe uses it
   stops: Array<{ skill: number; cost: number }>; // the step's cost if it ended early at `skill`
 }
 
@@ -109,6 +110,7 @@ export interface LevelPlan {
   complete: boolean;
   tooDear: boolean; // stopped because the next point cost too much, not for lack of materials
   totalCost: number;
+  totalSells: number; // sold to a vendor; totalCost - totalSells is what the route really costs
   brackets: LevelBracket[];
   steps: LevelStep[];
   shopping: StepMaterial[];
@@ -186,8 +188,24 @@ function absorbShortSteps(choices: Choice[], costs: ReadonlyMap<number, Readonly
   }
 }
 
-export function planLevelling(profession: Profession, market: Market, from: number, to: number): LevelPlan {
+// `sellPrices`: what a vendor pays for each product. Recipes are chosen by cost
+// less that, since a vendor always buys; auction prices are not counted, as
+// nothing says the market would take it all. At most SALE_CREDIT of the cost is
+// taken off, so a craft is never free and a long green grind of break-even
+// crafts does not win.
+const SALE_CREDIT = 0.8;
+export function planLevelling(
+  profession: Profession,
+  market: Market,
+  from: number,
+  to: number,
+  sellPrices: ReadonlyMap<number, number> = new Map(),
+): LevelPlan {
   const vendor = profession.vendorPrices;
+  // Products other recipes use (leather, bolts, oils) are kept, not sold.
+  const reagentIds = new Set(profession.recipes.flatMap((recipe) => recipe.reagents.map((r) => r.itemId)));
+  const sellValue = (recipe: Recipe, crafts: number) =>
+    reagentIds.has(recipe.makes.itemId) ? 0 : (sellPrices.get(recipe.makes.itemId) ?? 0) * recipe.makes.quantity * crafts;
 
   const helped = profession.reagentRecipes ?? [];
   const makers = new Map([...profession.recipes, ...helped].map((recipe) => [recipe.makes.itemId, recipe]));
@@ -242,7 +260,8 @@ export function planLevelling(profession: Profession, market: Market, from: numb
       Math.max(0, reagent.quantity * crafts - (made.get(reagent.itemId) ?? 0));
 
     for (let skill = reached; skill < to; skill++) {
-      let best: { recipe: Recipe; crafts: number; cost: number } | undefined;
+      // `net` is the cost less what a vendor pays for the product.
+      let best: { recipe: Recipe; crafts: number; cost: number; net: number } | undefined;
       const atSkill = new Map<Recipe, number>();
       costs.set(skill, atSkill);
       for (const recipe of profession.recipes) {
@@ -261,8 +280,9 @@ export function planLevelling(profession: Profession, market: Market, from: numb
           }
           cost += source.cost;
         }
-        atSkill.set(recipe, cost);
-        if (cost < (best?.cost ?? Infinity)) best = { recipe, crafts, cost };
+        const net = cost - Math.min(sellValue(recipe, crafts), cost * SALE_CREDIT);
+        atSkill.set(recipe, net);
+        if (net < (best?.net ?? Infinity)) best = { recipe, crafts, cost, net };
       }
       if (!best) break; // nothing can be crafted for this point
       if (dearest > 0 && best.cost > PRICE_JUMP * dearest) {
@@ -419,6 +439,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
         plan: first.recipe.plan ?? false,
         materials,
         cost: materials.reduce((sum, m) => sum + m.cost, 0),
+        sells: sellValue(first.recipe, crafts),
         stops,
       });
       reached = last.skill + 1;
@@ -466,6 +487,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
     complete: reached >= to,
     tooDear: tooDear && reached < to,
     totalCost: steps.reduce((sum, s) => sum + s.cost, 0),
+    totalSells: steps.reduce((sum, s) => sum + s.sells, 0),
     brackets,
     steps,
     shopping: [...shopping.values()].sort((a, b) => b.cost - a.cost),
@@ -477,6 +499,7 @@ export function planLevelling(profession: Profession, market: Market, from: numb
 export interface MarketData {
   takenAt: number | null;
   market: Market;
+  sellPrices: Map<number, number>; // what a vendor pays for each product, where known
 }
 
 // Order books for a profession's reagents, from the latest snapshot.
@@ -492,9 +515,18 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
     `,
     )
     .get(houseId);
-  if (!snapshot) return { takenAt: null, market: new Map() };
-
   const recipes = [...profession.recipes, ...(profession.reagentRecipes ?? [])];
+  const productIds = [...new Set(recipes.map((recipe) => recipe.makes.itemId))].join(",");
+  const sellPrices = new Map(
+    db
+      .prepare<[], { itemId: number; sellPrice: number }>(
+        `SELECT item_id AS itemId, sell_price AS sellPrice FROM items WHERE item_id IN (${productIds}) AND sell_price > 0`,
+      )
+      .all()
+      .map((row) => [row.itemId, row.sellPrice]),
+  );
+  if (!snapshot) return { takenAt: null, market: new Map(), sellPrices };
+
   const ids = [...new Set(recipes.flatMap((recipe) => recipe.reagents.map((r) => r.itemId)))];
   // The IDs are our own integers, so building the IN (...) list is safe.
   const idList = ids.join(",");
@@ -540,5 +572,5 @@ export function loadMarket(db: Db, houseId: number, profession: Profession): Mar
     }
     market.set(itemId, { book, exactUnits });
   }
-  return { takenAt: snapshot.takenAt, market };
+  return { takenAt: snapshot.takenAt, market, sellPrices };
 }

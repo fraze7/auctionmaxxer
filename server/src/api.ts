@@ -449,8 +449,8 @@ export function createApp(options: ApiOptions): Express {
     const out = new Set([...skipped, ...unavailable]);
     const kept = { ...base, recipes: base.recipes.filter((recipe) => !out.has(recipe)) };
     const profession = withHelper(kept, query.helperSkill);
-    const { takenAt, market } = loadMarket(db, houseId, profession);
-    const plan = planLevelling(profession, market, query.from, query.to);
+    const { takenAt, market, sellPrices } = loadMarket(db, houseId, profession);
+    const plan = planLevelling(profession, market, query.from, query.to, sellPrices);
     res.json({
       house: houseId,
       takenAt,

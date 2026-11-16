@@ -121,6 +121,48 @@ describe("planLevelling", () => {
     assert.equal(plan.reached, 20);
   });
 
+  it("prefers a dearer recipe when a vendor pays enough more for what it makes", () => {
+    // Same colours: Kit costs 15c, Cloak 25c, but a vendor pays 4c for a Kit and 20c for a Cloak.
+    const kit: Recipe = { ...recipe("Kit", 1, 10, 20, [[1, 1], [9, 1]]), makes: { itemId: 801, quantity: 1 } };
+    const cloak: Recipe = { ...recipe("Cloak", 1, 10, 20, [[1, 2], [9, 1]]), makes: { itemId: 802, quantity: 1 } };
+    const both: Profession = { ...TEST, recipes: [kit, cloak] };
+    const books = market({ 1: [[10, 1000]] });
+
+    assert.deepEqual(
+      planLevelling(both, books, 1, 10).steps.map((s) => s.recipeName),
+      ["Kit"],
+    );
+    const plan = planLevelling(both, books, 1, 10, new Map([[801, 4], [802, 20]]));
+    assert.deepEqual(
+      plan.steps.map((s) => [s.recipeName, s.cost, s.sells]),
+      [["Cloak", 9 * 25, 9 * 20]],
+    );
+    assert.equal(plan.totalSells, 9 * 20);
+  });
+
+  it("never treats a craft as free, however much a vendor pays", () => {
+    // At skill 10 Grind needs 10 crafts for the point at 10c each, and a vendor pays 100c for each.
+    // Fresh gives the point in one 15c craft. Grind is credited at most 80% of its 100c.
+    const grind: Recipe = { ...recipe("Grind", 1, 1, 11, [[9, 2]]), makes: { itemId: 803, quantity: 1 } };
+    const fresh = recipe("Fresh", 1, 15, 20, [[1, 1], [9, 1]]);
+    const plan = planLevelling(
+      { ...TEST, recipes: [grind, fresh] },
+      market({ 1: [[10, 1000]] }),
+      10,
+      11,
+      new Map([[803, 100]]),
+    );
+    assert.deepEqual(
+      plan.steps.map((s) => s.recipeName),
+      ["Fresh"],
+    );
+  });
+
+  it("does not count selling a product that a later recipe uses", () => {
+    const sold = planLevelling(oily, market({ 1: [[10, 1000]] }), 1, 10, new Map([[3, 1000]]));
+    assert.equal(sold.totalSells, 0);
+  });
+
   it("walks up the order book as cheap listings are used", () => {
     const plan = planLevelling(TEST, market({ 1: [[10, 4], [50, 100]] }), 1, 10);
     assert.equal(plan.steps[0]?.materials[0]?.cost, 4 * 10 + 5 * 50);
