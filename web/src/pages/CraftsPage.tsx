@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { craftsApi, type Craft } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
+import { Picker } from '../components/Picker.tsx'
 import { SellRate } from '../components/SellRate.tsx'
 import { SELL_RATE_HINT } from '../sellRate.ts'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
@@ -57,41 +58,11 @@ export function CraftsPage() {
           </p>
         </div>
 
-        <div className="flex rounded-md border border-zinc-700 text-sm">
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={profession === option.id}
-              onClick={() => setProfession(option.id)}
-              className={[
-                'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
-                profession === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
-              ].join(' ')}
-            >
-              {option.name}
-            </button>
-          ))}
-        </div>
+        <Picker options={options} value={profession} onChange={setProfession} />
       </div>
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div className="flex rounded-md border border-zinc-700 text-sm">
-          {KINDS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={kind === option.id}
-              onClick={() => setKind(option.id === 'stack' ? '' : option.id)}
-              className={[
-                'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
-                kind === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
-              ].join(' ')}
-            >
-              {option.name}
-            </button>
-          ))}
-        </div>
+        <Picker options={KINDS} value={kind} onChange={(id) => setKind(id === 'stack' ? '' : id)} />
         <label className="block text-xs text-zinc-400">
           Profit of at least (silver)
           <input

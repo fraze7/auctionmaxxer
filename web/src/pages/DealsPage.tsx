@@ -219,7 +219,7 @@ function NumberField({ label, value, onChange, placeholder }: NumberFieldProps) 
         placeholder={placeholder}
         // Digits only, so the URL never carries something the API rejects.
         onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
-        className="tabular mt-1 w-44 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
+        className="tabular mt-1 block w-44 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
       />
     </label>
   )

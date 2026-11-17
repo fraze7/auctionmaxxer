@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { levellingApi, type LevelMaterial, type LevellingResponse, type LevelStep } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
+import { Picker } from '../components/Picker.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
 import { formatNumber } from '../format.ts'
 import { useSkills } from '../profile.ts'
@@ -59,22 +60,7 @@ export function LevellingPage() {
           </p>
         </div>
 
-        <div className="flex rounded-md border border-zinc-700 text-sm">
-          {(levelling.data?.professions ?? []).map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={profession === option.id}
-              onClick={() => setChosen(option.id)}
-              className={[
-                'px-3 py-1.5 first:rounded-l-md last:rounded-r-md',
-                profession === option.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
-              ].join(' ')}
-            >
-              {option.name}
-            </button>
-          ))}
-        </div>
+        <Picker options={levelling.data?.professions ?? []} value={profession} onChange={setChosen} />
       </div>
 
       {canStartFromMine && (

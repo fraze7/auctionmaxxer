@@ -50,14 +50,15 @@ export default function App() {
       <header className="border-b border-zinc-800 bg-zinc-900/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <span className="font-semibold tracking-tight text-amber-400">auctionmaxxer</span>
-          <nav className="flex gap-1 text-sm">
+          {/* On a phone the groups get a line of their own. */}
+          <nav className="order-last flex w-full justify-between gap-1 overflow-x-auto text-[13px] sm:order-none sm:w-auto sm:justify-start sm:text-sm">
             {GROUPS.map((candidate) => (
               <Link
                 key={candidate.name}
                 to={candidate.tabs[0]!.to}
                 aria-current={candidate === group ? 'true' : undefined}
                 className={[
-                  'rounded px-3 py-1.5',
+                  'rounded px-1.5 py-1.5 whitespace-nowrap sm:px-3',
                   candidate === group ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-100',
                 ].join(' ')}
               >
