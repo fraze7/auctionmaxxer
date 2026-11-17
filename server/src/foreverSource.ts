@@ -20,6 +20,9 @@ const TOKEN_URL = "https://oauth.battle.net/token";
 const API_ORIGIN = "https://eu.api.blizzard.com";
 const DYNAMIC_NAMESPACE = "dynamic-forever-eu"; // auctions: changes hourly
 const STATIC_NAMESPACE = "static-forever-eu"; // item names: changes with patches
+// Classic Era's catalogue: it has some Classic items Forever's lacks, such as
+// Rockshard Pellets (checked 17 Nov 2026).
+const FALLBACK_NAMESPACE = "static-classic1x-eu";
 
 const MAX_ATTEMPTS = 4; // 1 try + 3 retries
 const FIRST_RETRY_DELAY_MS = 1_000; // then 2s, then 4s
@@ -108,20 +111,23 @@ export class ForeverSource implements DataSource {
   }
 
   async getItem(itemId: number): Promise<ItemInfo | null> {
-    const url = `${API_ORIGIN}/data/wow/item/${itemId}?namespace=${STATIC_NAMESPACE}`;
-    const response = await this.authorizedGet(url, {}, [404]);
-    // 404 is normal: Blizzard has no data for many Forever items.
-    if (response.status === 404) {
-      await response.body?.cancel();
-      return null;
+    for (const namespace of [STATIC_NAMESPACE, FALLBACK_NAMESPACE]) {
+      const url = `${API_ORIGIN}/data/wow/item/${itemId}?namespace=${namespace}`;
+      const response = await this.authorizedGet(url, {}, [404]);
+      // 404 is normal: Blizzard has no data for many Forever items.
+      if (response.status === 404) {
+        await response.body?.cancel();
+        continue;
+      }
+      const item = await readJson(response, url, ItemResponseSchema);
+      return {
+        id: item.id,
+        name: item.name.en_GB,
+        ...(item.quality ? { quality: item.quality.type } : {}),
+        ...(item.sell_price !== undefined ? { sellPrice: item.sell_price } : {}),
+      };
     }
-    const item = await readJson(response, url, ItemResponseSchema);
-    return {
-      id: item.id,
-      name: item.name.en_GB,
-      ...(item.quality ? { quality: item.quality.type } : {}),
-      ...(item.sell_price !== undefined ? { sellPrice: item.sell_price } : {}),
-    };
+    return null;
   }
 
   // Returns 2xx, 304 or `alsoAllow` responses; throws for anything else.

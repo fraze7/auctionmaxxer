@@ -159,6 +159,12 @@ describe("ForeverSource.fetchSnapshot", () => {
 describe("ForeverSource retries", () => {
   const ok = () => json({ id: 2447, name: { en_GB: "Peacebloom" }, quality: { type: "COMMON" } });
 
+  it("falls back to the Classic Era catalogue for an item Forever's lacks", async () => {
+    const classic = `${API}/data/wow/item/2447?namespace=static-classic1x-eu`;
+    const t = setup({ [TOKEN_URL]: tokenResponse, [ITEM_URL]: () => new Response(null, { status: 404 }), [classic]: ok });
+    assert.equal((await t.source.getItem(2447))?.name, "Peacebloom");
+  });
+
   it("retries a 503 with growing waits, then succeeds", async () => {
     const t = setup({
       [TOKEN_URL]: tokenResponse,
@@ -284,6 +290,7 @@ describe("ForeverSource.getItem and listHouses", () => {
     const t = setup({
       [TOKEN_URL]: tokenResponse,
       [ITEM_URL]: () => new Response(null, { status: 404 }),
+      [`${API}/data/wow/item/2447?namespace=static-classic1x-eu`]: () => new Response(null, { status: 404 }),
     });
     assert.equal(await t.source.getItem(2447), null);
     assert.equal(t.countCalls(ITEM_URL), 1); // a 404 is an answer, not a reason to retry
