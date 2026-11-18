@@ -6,3 +6,4 @@ node_modules/
 dist/
 server/fixtures/
 server/data/
+CLAUDE.local.md
