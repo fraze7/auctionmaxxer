@@ -5,6 +5,7 @@ import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
+import { PREFIXES as RECIPE_PREFIXES } from "./plans.js";
 import { PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
@@ -175,12 +176,27 @@ export function createApp(options: ApiOptions): Express {
     LIMIT 1
   `);
 
-  // Without a search: only what is listed now, busiest first. A search also
-  // finds items not listed right now (price: null), A to Z.
+  // Listings sold one at a time have one price per listing, so "quantity" is
+  // the listing count and there is no quantity at the cheapest price.
+  const PRICE_COLUMNS = `
+    COALESCE(p.min_price, r.min_buyout) AS min_price,
+    COALESCE(p.median_price, r.median_buyout) AS median_price,
+    COALESCE(p.quantity, r.listing_count) AS quantity,
+    p.qty_at_min,
+    COALESCE(p.listing_count, r.listing_count) AS listing_count
+  `;
+  const PRICE_JOINS = `
+    LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
+    LEFT JOIN item_prices r ON r.item_id = i.item_id AND r.snapshot_id = @snapshotId
+  `;
+  const IS_RECIPE = RECIPE_PREFIXES.map((prefix) => `i.name LIKE '${prefix}%'`).join(" OR ");
+
+  // Without a search: only commodities listed now, busiest first. A search also
+  // finds recipes and items not listed right now (price: null), A to Z.
   const SEARCH_FROM = `
     FROM items i
-    LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
-    WHERE i.kind = 'commodity'
+    ${PRICE_JOINS}
+    WHERE (i.kind = 'commodity' OR (@q <> '' AND (${IS_RECIPE})))
       AND (@q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q)
       AND (@q <> '' OR p.item_id IS NOT NULL)
   `;
@@ -188,8 +204,7 @@ export function createApp(options: ApiOptions): Express {
     { q: string; pattern: string; snapshotId: number; limit: number; offset: number },
     ItemRow
   >(`
-    SELECT i.item_id, i.name, i.quality, i.status,
-           p.min_price, p.median_price, p.quantity, p.qty_at_min, p.listing_count
+    SELECT i.item_id, i.name, i.quality, i.status, ${PRICE_COLUMNS}
     ${SEARCH_FROM}
     ORDER BY CASE WHEN @q = '' THEN p.listing_count END DESC,
              i.name IS NULL, i.name COLLATE NOCASE, i.item_id   -- unnamed items last
@@ -199,11 +214,10 @@ export function createApp(options: ApiOptions): Express {
     SELECT COUNT(*) AS n ${SEARCH_FROM}
   `);
 
-  const oneItem = db.prepare<{ itemId: number; snapshotId: number }, ItemRow>(`
-    SELECT i.item_id, i.name, i.quality, i.status,
-           p.min_price, p.median_price, p.quantity, p.qty_at_min, p.listing_count
+  const oneItem = db.prepare<{ itemId: number; snapshotId: number }, ItemRow & { kind: string }>(`
+    SELECT i.item_id, i.name, i.quality, i.status, i.kind, ${PRICE_COLUMNS}
     FROM items i
-    LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
+    ${PRICE_JOINS}
     WHERE i.item_id = @itemId
   `);
   const itemLevels = db.prepare<[number, number], { unitPrice: number; quantity: number }>(`
@@ -216,14 +230,26 @@ export function createApp(options: ApiOptions): Express {
 
   const itemHistory = db.prepare<
     { itemId: number; houseId: number; since: number },
-    { takenAt: number; minPrice: number; medianPrice: number; quantity: number; qtyAtMin: number; listingCount: number }
+    {
+      takenAt: number;
+      minPrice: number;
+      medianPrice: number;
+      quantity: number;
+      qtyAtMin: number | null;
+      listingCount: number;
+    }
   >(`
     SELECT s.taken_at AS takenAt, p.min_price AS minPrice, p.median_price AS medianPrice,
            p.quantity, p.qty_at_min AS qtyAtMin, p.listing_count AS listingCount
     FROM commodity_prices p
     JOIN snapshots s ON s.id = p.snapshot_id
     WHERE p.item_id = @itemId AND s.house_id = @houseId AND s.taken_at >= @since
-    ORDER BY s.taken_at
+    UNION ALL
+    SELECT s.taken_at, r.min_buyout, r.median_buyout, r.listing_count, NULL, r.listing_count
+    FROM item_prices r
+    JOIN snapshots s ON s.id = r.snapshot_id
+    WHERE r.item_id = @itemId AND s.house_id = @houseId AND s.taken_at >= @since
+    ORDER BY takenAt
   `);
 
   // Hourly minimum prices, for the trend verdict.
@@ -235,6 +261,11 @@ export function createApp(options: ApiOptions): Express {
     FROM commodity_prices p
     JOIN snapshots s ON s.id = p.snapshot_id
     WHERE p.item_id = @itemId AND s.house_id = @houseId AND s.status = 'ok' AND s.taken_at > @since
+    UNION ALL
+    SELECT s.taken_at, r.min_buyout
+    FROM item_prices r
+    JOIN snapshots s ON s.id = r.snapshot_id
+    WHERE r.item_id = @itemId AND s.house_id = @houseId AND s.status = 'ok' AND s.taken_at > @since
   `);
 
   const snapshotCounts = db.prepare<{ houseId: number; since: number }, { status: string; n: number }>(`
@@ -345,6 +376,7 @@ export function createApp(options: ApiOptions): Express {
       name: row.name,
       quality: row.quality,
       nameStatus: row.status, // 'ok', 'pending' (not looked up yet) or 'missing'
+      kind: row.kind, // 'single' = sold one at a time: no order book
       house: houseId,
       takenAt: latest?.taken_at ?? null,
       price: toPrice(row),

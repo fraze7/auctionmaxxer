@@ -33,7 +33,7 @@ const columns: Column<ItemSummary>[] = [
     header: 'Qty at min',
     title: 'Units on sale at the min price',
     align: 'right',
-    render: (i) => (i.price ? formatNumber(i.price.qtyAtMin) : dash),
+    render: (i) => (i.price && i.price.qtyAtMin !== null ? formatNumber(i.price.qtyAtMin) : dash),
   },
   {
     key: 'quantity',
@@ -82,7 +82,9 @@ export function ItemsPage() {
         <div className="mr-auto">
           <h1 className="text-lg font-semibold text-zinc-100">Items</h1>
           <p className="text-sm text-zinc-500">
-            {q ? 'Every commodity seen so far, with its current price.' : 'Listed right now, most listings first.'}
+            {q
+              ? 'Every commodity seen so far, plus recipes, patterns and plans, with current prices.'
+              : 'Listed right now, most listings first.'}
           </p>
         </div>
         <input

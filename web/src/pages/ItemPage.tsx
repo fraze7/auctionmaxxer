@@ -41,6 +41,29 @@ export function ItemPage() {
   if (detail.isPending) return <LoadingState />
   if (detail.isError) return <ErrorState error={detail.error} />
   const item = detail.data
+  // Sold one at a time: no order book, and alerts and time of day don't cover these.
+  const single = item.kind === 'single'
+
+  const listings = (
+    <Card title="Listings" subtitle="Separate auctions - a rough count of sellers">
+      <History state={history}>
+        {(points) => (
+          <HistoryChart
+            points={points}
+            height={180}
+            series={[{ key: 'listingCount', label: 'Listings', color: SERIES_COLOR.supply }]}
+            formatAxis={formatCountShort}
+            renderValue={formatNumber}
+          />
+        )}
+      </History>
+    </Card>
+  )
+  const snapshots = (
+    <Card title="Snapshots" subtitle="The numbers behind the charts, newest first">
+      <History state={history}>{(points) => <HistoryTable points={points} />}</History>
+    </Card>
+  )
 
   return (
     <div className="space-y-6">
@@ -54,16 +77,21 @@ export function ItemPage() {
           {item.nameStatus === 'pending' && ' · name not looked up yet'}
           {item.nameStatus === 'missing' && ' · Blizzard has no name for this item'}
           {item.takenAt && ` · prices from ${formatDateTime(item.takenAt)}`}
+          {single && ' · sold one at a time'}
         </p>
       </div>
 
       <Stats item={item} />
 
-      <PriceAlert item={item} />
+      {!single && <PriceAlert item={item} />}
 
       <Card
         title="Price"
-        subtitle="Cheapest listing and the median across everything listed, at each snapshot"
+        subtitle={
+          single
+            ? 'Cheapest buyout and the median across listings, kept for 14 days'
+            : 'Cheapest listing and the median across everything listed, at each snapshot'
+        }
         action={
           <div className="flex rounded-md border border-zinc-700 text-xs">
             {RANGES.map((range) => (
@@ -99,48 +127,43 @@ export function ItemPage() {
         </History>
       </Card>
 
-      <Card title="Time of day" subtitle="How the cheapest price usually compares with the rest of the same day">
-        <TimeOfDay id={item.id} />
-      </Card>
+      {single ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {listings}
+          {snapshots}
+        </div>
+      ) : (
+        <>
+          <Card title="Time of day" subtitle="How the cheapest price usually compares with the rest of the same day">
+            <TimeOfDay id={item.id} />
+          </Card>
 
-      {/* Supply gets its own charts: a different unit needs its own axis. */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Total quantity listed" subtitle="A sharp drop can mean a buyout, often before a price rise">
-          <History state={history}>
-            {(points) => (
-              <HistoryChart
-                points={points}
-                height={180}
-                series={[{ key: 'quantity', label: 'Units listed', color: SERIES_COLOR.supply }]}
-                formatAxis={formatCountShort}
-                renderValue={formatNumber}
-              />
-            )}
-          </History>
-        </Card>
-        <Card title="Listings" subtitle="Separate auctions - a rough count of sellers">
-          <History state={history}>
-            {(points) => (
-              <HistoryChart
-                points={points}
-                height={180}
-                series={[{ key: 'listingCount', label: 'Listings', color: SERIES_COLOR.supply }]}
-                formatAxis={formatCountShort}
-                renderValue={formatNumber}
-              />
-            )}
-          </History>
-        </Card>
-      </div>
+          {/* Supply gets its own charts: a different unit needs its own axis. */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card title="Total quantity listed" subtitle="A sharp drop can mean a buyout, often before a price rise">
+              <History state={history}>
+                {(points) => (
+                  <HistoryChart
+                    points={points}
+                    height={180}
+                    series={[{ key: 'quantity', label: 'Units listed', color: SERIES_COLOR.supply }]}
+                    formatAxis={formatCountShort}
+                    renderValue={formatNumber}
+                  />
+                )}
+              </History>
+            </Card>
+            {listings}
+          </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Cheapest listings" subtitle="What it costs to buy a given amount right now">
-          <OrderBook levels={item.levels} />
-        </Card>
-        <Card title="Snapshots" subtitle="The numbers behind the charts, newest first">
-          <History state={history}>{(points) => <HistoryTable points={points} />}</History>
-        </Card>
-      </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card title="Cheapest listings" subtitle="What it costs to buy a given amount right now">
+              <OrderBook levels={item.levels} />
+            </Card>
+            {snapshots}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -164,8 +187,12 @@ function Stats({ item }: { item: ItemDetail }) {
       <Stat label="Median">
         <PriceTag copper={price.medianPrice} />
       </Stat>
-      <Stat label="Qty at min">{formatNumber(price.qtyAtMin)}</Stat>
-      <Stat label="Total listed">{formatNumber(price.quantity)}</Stat>
+      {price.qtyAtMin !== null && (
+        <>
+          <Stat label="Qty at min">{formatNumber(price.qtyAtMin)}</Stat>
+          <Stat label="Total listed">{formatNumber(price.quantity)}</Stat>
+        </>
+      )}
       <Stat label="Listings">{formatNumber(price.listingCount)}</Stat>
       <Stat label="Trend" hint={trend ? '24h median vs 7d median' : 'needs more history'}>
         {trend ? (

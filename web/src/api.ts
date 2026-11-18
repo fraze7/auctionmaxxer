@@ -5,7 +5,7 @@ export interface Price {
   minPrice: number
   medianPrice: number
   quantity: number
-  qtyAtMin: number
+  qtyAtMin: number | null // null = sold one at a time
   listingCount: number
 }
 
@@ -131,6 +131,7 @@ export interface ItemDetail {
   name: string | null
   quality: string | null
   nameStatus: 'ok' | 'pending' | 'missing'
+  kind: 'commodity' | 'single' // single = sold one at a time, such as a recipe
   house: number
   takenAt: number | null
   price: Price | null

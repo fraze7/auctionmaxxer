@@ -25,10 +25,22 @@ const listing = (itemId: number, unitPrice: number, quantity: number): Commodity
   time_left: "LONG",
 });
 
-async function store(db: Db, takenAt: number, commodities: CommodityListing[]): Promise<void> {
+async function store(
+  db: Db,
+  takenAt: number,
+  commodities: CommodityListing[],
+  singles: Array<[itemId: number, buyout: number]> = [],
+): Promise<void> {
+  const items = singles.map(([itemId, buyout]) => ({
+    id: auctionId++,
+    item: { id: itemId },
+    quantity: 1,
+    buyout,
+    time_left: "LONG" as const,
+  }));
   const source: DataSource = {
     listHouses: async () => [],
-    fetchSnapshot: async () => ({ houseId: HOUSE, takenAt, commodities, items: [] }),
+    fetchSnapshot: async () => ({ houseId: HOUSE, takenAt, commodities, items }),
     getItem: async () => null,
   };
   const result = await collectOnce({ db, source, rulesetId: 1, houseId: HOUSE, now: () => takenAt + 300 });
@@ -202,6 +214,7 @@ describe("GET /api/items/:id", () => {
         name: "Peacebloom",
         quality: "COMMON",
         nameStatus: "ok",
+        kind: "commodity",
         house: HOUSE,
         takenAt: T0 + HOUR,
         price: { minPrice: 36, medianPrice: 45, quantity: 25, qtyAtMin: 5, listingCount: 2 },
@@ -256,6 +269,55 @@ describe("GET /api/items/:id", () => {
   it("returns 400 for an ID that is not a number", async () => {
     await withApi(await seededDb(), async (get) => {
       assert.equal((await get("/api/items/peacebloom")).status, 400);
+    });
+  });
+});
+
+describe("recipes sold one at a time", () => {
+  const RECIPE = 12958;
+  const HELM = 40;
+
+  async function recipeDb(): Promise<Db> {
+    const db = openDb(":memory:");
+    await store(db, T0, [listing(PEACEBLOOM, 40, 10)], [[RECIPE, 800]]);
+    await store(db, T0 + HOUR, [listing(PEACEBLOOM, 36, 5)], [[RECIPE, 500], [RECIPE, 700], [RECIPE, 900], [HELM, 100]]);
+    const name = db.prepare("UPDATE items SET name = ?, status = 'ok' WHERE item_id = ?");
+    name.run("Recipe: Transmute Arcanite", RECIPE);
+    name.run("Transmuter's Helm", HELM);
+    return db;
+  }
+
+  it("are found by a search, unlike gear, and stay out of the plain list", async () => {
+    await withApi(await recipeDb(), async (get) => {
+      const { body } = await get("/api/items?q=transmut");
+      assert.deepEqual(body.items.map((item: { id: number }) => item.id), [RECIPE]);
+      assert.equal(body.total, 1);
+      assert.deepEqual(body.items[0].price, {
+        minPrice: 500,
+        medianPrice: 700,
+        quantity: 3,
+        qtyAtMin: null,
+        listingCount: 3,
+      });
+      const list = await get("/api/items");
+      assert.deepEqual(list.body.items.map((item: { id: number }) => item.id), [PEACEBLOOM]);
+    });
+  });
+
+  it("have an item page and a price history", async () => {
+    await withApi(await recipeDb(), async (get) => {
+      const { body } = await get(`/api/items/${RECIPE}`);
+      assert.deepEqual([body.kind, body.price.minPrice, body.levels], ["single", 500, []]);
+      const history = await get(`/api/items/${RECIPE}/history?days=1`);
+      assert.deepEqual(
+        history.body.points.map((p: { takenAt: number; minPrice: number; listingCount: number }) => [
+          p.takenAt,
+          p.minPrice,
+          p.listingCount,
+        ]),
+        [[T0, 800, 1], [T0 + HOUR, 500, 3]],
+      );
+      assert.equal((await get(`/api/items/${PEACEBLOOM}`)).body.kind, "commodity");
     });
   });
 });

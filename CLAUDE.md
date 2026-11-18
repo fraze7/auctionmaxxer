@@ -28,7 +28,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 235 tests
+cd server && npm test          # node:test via tsx; 237 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -53,7 +53,9 @@ pointing at the copy (`npm run api`, port 3001), and run `npm run dev` in
 - `price_levels`: the 20 cheapest price levels per item. Kept 14 days.
 - `item_prices`: cheapest and median buyout per item for listings sold one
   at a time (gear, bags, patterns), from 15 Nov 2026. Kept 14 days. Such
-  items have `items.kind = 'single'` and are left out of the Items search.
+  items have `items.kind = 'single'` and are left out of the Items list. A
+  search finds the recipe-type ones (`PREFIXES` in `plans.ts`), which get a
+  shorter item page: price and listings only, no alerts or time of day.
   Levelling uses it for plan prices (`plans.ts`, matched by name: "Plans:
   X", "Pattern: X", "Formula: X"); Crafts uses it to price crafted gear.
 - `items`: name, quality, `sell_price` (what a vendor pays; NULL = not

@@ -5,7 +5,7 @@ import type { Db } from "./db.js";
 // it has been listed and its name looked up. Plans sold only by vendors or
 // given by quests never appear.
 
-const PREFIXES = ["Plans: ", "Pattern: ", "Formula: ", "Schematic: ", "Recipe: "];
+export const PREFIXES = ["Plans: ", "Pattern: ", "Formula: ", "Schematic: ", "Recipe: "];
 
 // Dropped plans new to Forever that had never been listed by 16 Nov 2026, so
 // their names could not be learned. Item IDs from Wowhead, by recipe name.
