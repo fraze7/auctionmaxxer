@@ -140,7 +140,7 @@ export async function collectOnce(options: CollectOptions): Promise<CollectResul
 }
 
 // When the newest stored snapshot was taken, or null. Failed rows have no taken_at.
-function latestTakenAt(db: Db, houseId: number): number | null {
+export function latestTakenAt(db: Db, houseId: number): number | null {
   const row = db
     .prepare<[number, string], { takenAt: number | null }>(
       `

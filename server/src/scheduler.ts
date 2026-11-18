@@ -1,20 +1,19 @@
 // The long-running collector: npm start
-// Blizzard publishes hourly but not at a fixed minute, so we ask every 10
-// minutes. Asking is cheap: nothing new means a 304 with no body.
-import { schedule } from "node-cron";
+// Asks Blizzard just after each hourly update is due (see nextCheck.ts).
+// Asking is cheap: nothing new means a 304 with no body.
 import { createSource, loadConfig } from "./config.js";
+import { latestTakenAt } from "./collector.js";
 import { openDb } from "./db.js";
 import { log, runJob } from "./job.js";
-
-const EVERY_TEN_MINUTES = "*/10 * * * *";
+import { secondsUntilNextCheck } from "./nextCheck.js";
 
 const config = loadConfig();
 const source = createSource(config); // kept for the whole run, so its token is reused
 const db = openDb(config.DB_PATH);
 
-async function tick(logSkipped: boolean): Promise<void> {
+async function tick(logSkipped: boolean): Promise<boolean> {
   try {
-    await runJob({
+    return await runJob({
       db,
       source,
       rulesetId: config.RULESET_ID,
@@ -26,24 +25,33 @@ async function tick(logSkipped: boolean): Promise<void> {
   } catch (err) {
     // Anything runJob didn't handle itself: log it and keep the schedule running.
     log("Run crashed:", err instanceof Error ? (err.stack ?? err.message) : String(err));
+    return false;
   }
 }
 
 log(`Collector started: house ${config.HOUSE_ID}, source "${config.DATA_SOURCE}", database ${config.DB_PATH}`);
-log("Checking for a new snapshot every 10 minutes. Press Ctrl+C to stop.");
+log("Checking for a new snapshot just after each hourly update. Press Ctrl+C to stop.");
 log(config.DISCORD_WEBHOOK_URL ? "Watchlist alerts go to Discord." : "No Discord webhook set: alerts show on the site only.");
 
 // Once right away, so a restart doesn't wait.
-await tick(true);
+let timer = planNext(await tick(true));
 
-// noOverlap: never run two at once.
-const task = schedule(EVERY_TEN_MINUTES, () => tick(false), { noOverlap: true });
+// The next run is only planned once this one ends, so two never overlap.
+function planNext(lastRunOk: boolean): NodeJS.Timeout {
+  const now = Math.floor(Date.now() / 1000);
+  const seconds = secondsUntilNextCheck(now, latestTakenAt(db, config.HOUSE_ID), lastRunOk);
+  return setTimeout(() => {
+    void tick(false).then((ok) => {
+      timer = planNext(ok);
+    });
+  }, seconds * 1000);
+}
 
 // Stop cleanly on Ctrl+C (SIGINT) and systemd's SIGTERM.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log("Stopping.");
-    void task.stop();
+    clearTimeout(timer);
     db.close();
     process.exit(0);
   });
