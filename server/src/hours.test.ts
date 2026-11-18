@@ -40,6 +40,7 @@ describe("hourlyPattern", () => {
     const pattern = hourlyPattern(db, 113, 1);
 
     assert.equal(pattern.ready, true);
+    assert.equal(pattern.repeats, true);
     assert.equal(pattern.hours.length, 24);
     assert.equal(pattern.hours[4]?.ratio, 0.8);
     assert.equal(pattern.hours[20]?.ratio, 1.2);
@@ -55,6 +56,17 @@ describe("hourlyPattern", () => {
     assert.equal(pattern.hours[12]?.ratio, 1);
   });
 
+  it("does not call it a pattern when odd and even days disagree", async () => {
+    const db = await dbWith(8 * 24, (hour, day) => (hour === (day % 2 ? 4 : 16) ? 80 : 100));
+    const pattern = hourlyPattern(db, 113, 1);
+    assert.deepEqual([pattern.ready, pattern.repeats], [true, false]);
+  });
+
+  it("does not call a steady price a pattern", async () => {
+    const pattern = hourlyPattern(await dbWith(8 * 24, () => 100), 113, 1);
+    assert.deepEqual([pattern.ready, pattern.repeats], [true, false]);
+  });
+
   it("gives no figures until each hour has been seen on enough days", async () => {
     const pattern = hourlyPattern(await dbWith(3 * 24, () => 100), 113, 1);
 
@@ -65,6 +77,6 @@ describe("hourlyPattern", () => {
 
   it("copes with an item that was never listed", async () => {
     const pattern = hourlyPattern(await dbWith(24, () => 100), 113, 99);
-    assert.deepEqual([pattern.days, pattern.ready], [0, false]);
+    assert.deepEqual([pattern.days, pattern.ready, pattern.repeats], [0, false, false]);
   });
 });

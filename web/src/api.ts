@@ -164,6 +164,7 @@ export interface HourlyPattern {
   id: number
   days: number // span of history used
   ready: boolean
+  repeats: boolean // the cheap and dear hours are the same on odd and even days
   hours: HourOfDay[]
 }
 

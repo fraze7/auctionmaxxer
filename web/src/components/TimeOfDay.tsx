@@ -58,6 +58,16 @@ export function TimeOfDay({ id }: { id: number }) {
   const flat = 1 - cheapest.ratio < FLAT && dearest.ratio - 1 < FLAT
   const shown = hours.find((entry) => entry.local === hovered)
 
+  // Bars would make chance swings look like a timetable.
+  if (!flat && !pattern.data.repeats) {
+    return (
+      <p className="text-sm text-zinc-500">
+        No dependable daily pattern yet: the price moves during the day, but its cheap and dear hours change from one
+        day to the next.
+      </p>
+    )
+  }
+
   return (
     <div>
       <p className="text-sm text-zinc-300">
