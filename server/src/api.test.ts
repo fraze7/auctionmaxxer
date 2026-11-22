@@ -384,10 +384,11 @@ describe("GET /api/deals", () => {
   });
 
   it("returns a deal once there is enough history", async () => {
-    // 60 hourly snapshots of Peacebloom at 100c, then one at 60c.
+    // 60 hourly snapshots of Peacebloom at 100c, then one at 60c. Stock stays
+    // under twice its usual level, or the stock rule would skip it.
     const db = openDb(":memory:");
     for (let hoursAgo = 60; hoursAgo >= 1; hoursAgo--) {
-      await store(db, NOW - hoursAgo * HOUR, [listing(PEACEBLOOM, 100, 10)]);
+      await store(db, NOW - hoursAgo * HOUR, [listing(PEACEBLOOM, 100, 20)]);
     }
     await store(db, NOW, [listing(PEACEBLOOM, 60, 25), listing(PEACEBLOOM, 100, 10)]);
 

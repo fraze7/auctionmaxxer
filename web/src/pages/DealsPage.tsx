@@ -156,7 +156,8 @@ function DealsView() {
           AH cut {Math.round(settings.data.ahCut * 100)}% · needs {settings.data.dealMinSnapshots} hourly snapshots ·
           deal when current min is at most {Math.round(settings.data.dealMaxPriceRatio * 100)}% of the 24h median ·
           never when the 24h median is more than {Math.round((1 - settings.data.dealTrendFalling) * 100)}% below the 7d
-          median, since the price is still falling
+          median, since the price is still falling · never when more than {settings.data.dealMaxStockRatio}× the usual
+          stock is listed
         </p>
       )}
     </div>

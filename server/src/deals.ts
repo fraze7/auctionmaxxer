@@ -8,7 +8,9 @@ import type { Settings } from "./settings.js";
 //   3. A falling trend (< 0.85) is never a deal; > 1.15 is rising.
 //   4. Expected sale = the lower of recent and week, minus the AH cut.
 //   5. A deal when profit reaches the minimum and current min <= 80% of recent.
-//   6. Ranked by profit per unit x units at that price (capped at maxQty).
+//   6. Not when more than dealMaxStockRatio x the 7d median of units is listed:
+//      a flooded market is heading lower (Record, 15-21 Nov 2026).
+//   7. Ranked by profit per unit x units at that price (capped at maxQty).
 // Thresholds live in the settings table.
 
 const DAY_SECONDS = 24 * 60 * 60;
@@ -78,6 +80,7 @@ export interface Deal extends ItemEvaluation {
   buyQty: number; // qtyAtMin, capped at maxQty
   totalProfit: number; // profitPerUnit x buyQty - what the list is ranked by
   soldPerDay: number | null; // estimate, see liquidity.ts; null = too little history
+  stockRatio: number; // units listed now / 7d median
 }
 
 export interface FindDealsOptions {
@@ -127,22 +130,23 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
 
   // Up to ~200,000 rows. Medians are awkward in SQL, so the rule runs in JS.
   const points = db
-    .prepare<[number, number], { item_id: number; taken_at: number; min_price: number }>(`
-      SELECT p.item_id, s.taken_at, p.min_price
+    .prepare<[number, number], { item_id: number; taken_at: number; min_price: number; quantity: number }>(`
+      SELECT p.item_id, s.taken_at, p.min_price, p.quantity
       FROM commodity_prices p
       JOIN snapshots s ON s.id = p.snapshot_id
       WHERE s.house_id = ? AND s.kind = 'commodities' AND s.status = 'ok' AND s.taken_at > ?
     `)
     .all(houseId, weekStart);
 
-  const history = new Map<number, { week: number[]; day: number[] }>();
+  const history = new Map<number, { week: number[]; day: number[]; stock: number[] }>();
   for (const point of points) {
     let entry = history.get(point.item_id);
     if (!entry) {
-      entry = { week: [], day: [] };
+      entry = { week: [], day: [], stock: [] };
       history.set(point.item_id, entry);
     }
     entry.week.push(point.min_price);
+    entry.stock.push(point.quantity);
     if (point.taken_at > dayStart) entry.day.push(point.min_price);
   }
 
@@ -150,9 +154,16 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
   const current = db
     .prepare<
       [number],
-      { item_id: number; name: string | null; quality: string | null; min_price: number; qty_at_min: number }
+      {
+        item_id: number;
+        name: string | null;
+        quality: string | null;
+        min_price: number;
+        qty_at_min: number;
+        quantity: number;
+      }
     >(`
-      SELECT p.item_id, i.name, i.quality, p.min_price, p.qty_at_min
+      SELECT p.item_id, i.name, i.quality, p.min_price, p.qty_at_min, p.quantity
       FROM commodity_prices p
       LEFT JOIN items i ON i.item_id = p.item_id
       WHERE p.snapshot_id = ?
@@ -170,6 +181,8 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
     itemsJudged++;
 
     if (!evaluation.isDeal || evaluation.profitPerUnit < options.minProfit) continue;
+    const stockRatio = row.quantity / Math.max(1, median(past.stock));
+    if (stockRatio > settings.dealMaxStockRatio) continue;
 
     const buyQty = Math.min(row.qty_at_min, options.maxQty ?? Infinity);
     deals.push({
@@ -182,6 +195,7 @@ export function findDeals(options: FindDealsOptions): FindDealsResult {
       buyQty,
       totalProfit: evaluation.profitPerUnit * buyQty,
       soldPerDay: sales.soldPerDay.size > 0 ? (sales.soldPerDay.get(row.item_id) ?? 0) : null,
+      stockRatio,
       ...evaluation,
     });
   }

@@ -15,6 +15,7 @@ const settings: Settings = {
   dealTrendRising: 1.15,
   dealMaxPriceRatio: 0.8,
   dealMinProfit: 1,
+  dealMaxStockRatio: 2,
 };
 
 // A flat stretch of hourly history.
@@ -188,6 +189,26 @@ describe("findDeals", () => {
   it("only looks at the last 7 days", () => {
     // The window still holds only 168 snapshots.
     assert.equal(find(seed(400)).snapshotsInWindow, 168);
+  });
+
+  it("skips an item with more than twice its usual stock listed", () => {
+    const db = seed(168);
+    const setStock = db.prepare(
+      "UPDATE commodity_prices SET quantity = ? WHERE item_id = ? AND snapshot_id = (SELECT MAX(id) FROM snapshots)",
+    );
+    setStock.run(30, CHEAP_NOW); // 3x its usual 10
+    setStock.run(2000, BIG_STACK); // exactly 2x: still a deal
+    const result = find(db);
+    assert.deepEqual(result.deals.map((d) => [d.id, d.stockRatio]), [[BIG_STACK, 2]]);
+  });
+
+  it("uses the stock limit from the settings", () => {
+    const db = seed(168);
+    db.prepare(
+      "UPDATE commodity_prices SET quantity = 30 WHERE item_id = ? AND snapshot_id = (SELECT MAX(id) FROM snapshots)",
+    ).run(CHEAP_NOW);
+    const loose = find(db, { settings: { ...settings, dealMaxStockRatio: 3 } });
+    assert.ok(loose.deals.some((d) => d.id === CHEAP_NOW));
   });
 
   it("respects the limit", () => {

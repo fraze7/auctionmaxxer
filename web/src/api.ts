@@ -71,6 +71,7 @@ export interface Settings {
   dealTrendRising: number
   dealMaxPriceRatio: number
   dealMinProfit: number
+  dealMaxStockRatio: number
 }
 
 // The server couldn't be reached at all, as opposed to answering with an error.

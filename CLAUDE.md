@@ -11,7 +11,7 @@ Notes for whoever works on the project next.
 
 ```
 server/            Node 24 + TypeScript (ESM), better-sqlite3, Express 5, zod 4
-  migrations/      001..008, applied in name order on start
+  migrations/      001..009, applied in name order on start
   src/             one module per feature, each with a .test.ts beside it
   src/professions/ recipe data per profession
 web/               React 19, Vite 8, Tailwind 4, react-router, TanStack Query
@@ -28,7 +28,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 237 tests
+cd server && npm test          # node:test via tsx; 239 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -78,7 +78,7 @@ Prices are whole copper; times are Unix seconds.
 
 | Tab | What it shows | Server module |
 |---|---|---|
-| Deals | items priced well under their 24h/7d median | `deals.ts` |
+| Deals | items priced well under their 24h/7d median, unless more than twice the usual stock is listed (`deal_max_stock_ratio`; from a week of Record verdicts, 15-21 Nov 2026, where such picks lost money) | `deals.ts` |
 | Items | what is listed now, most listings first; a search also finds unlisted items. Item page with chart, price alert and time-of-day pattern | `api.ts`, `hours.ts` |
 | Deals, Resets view | buyouts that leave a much higher cheapest price (`?show=resets`) | `resets.ts` |
 | Vendor | items listed below what a vendor pays | `vendor.ts` |

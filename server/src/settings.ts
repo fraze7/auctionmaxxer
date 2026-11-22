@@ -11,6 +11,7 @@ const SettingsSchema = z.object({
   deal_trend_rising: z.coerce.number().min(1).default(1.15),
   deal_max_price_ratio: z.coerce.number().positive().max(1).default(0.8),
   deal_min_profit: z.coerce.number().int().min(0).default(1),
+  deal_max_stock_ratio: z.coerce.number().min(1).default(2),
 });
 
 export interface Settings {
@@ -20,6 +21,7 @@ export interface Settings {
   dealTrendRising: number;
   dealMaxPriceRatio: number;
   dealMinProfit: number; // copper per unit
+  dealMaxStockRatio: number; // units listed now / 7d median
 }
 
 export function loadSettings(db: Db): Settings {
@@ -39,5 +41,6 @@ export function loadSettings(db: Db): Settings {
     dealTrendRising: s.deal_trend_rising,
     dealMaxPriceRatio: s.deal_max_price_ratio,
     dealMinProfit: s.deal_min_profit,
+    dealMaxStockRatio: s.deal_max_stock_ratio,
   };
 }
