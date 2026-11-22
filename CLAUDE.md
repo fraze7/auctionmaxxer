@@ -28,7 +28,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 239 tests
+cd server && npm test          # node:test via tsx; 243 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -82,7 +82,7 @@ Prices are whole copper; times are Unix seconds.
 | Items | what is listed now, most listings first; a search also finds unlisted items. Item page with chart, price alert and time-of-day pattern | `api.ts`, `hours.ts` |
 | Deals, Resets view | buyouts that leave a much higher cheapest price (`?show=resets`) | `resets.ts` |
 | Vendor | items listed below what a vendor pays | `vendor.ts` |
-| Favor | cheapest Waylaid Crates for Merchant's Favor | `favor.ts`, `crates.ts` |
+| Favor | cheapest Waylaid Crates for Merchant's Favor, plus the crates' cheapest and dearest four hours of the last week when odd and even days agree (`groupHours`) | `favor.ts`, `crates.ts`, `hours.ts` |
 | Crafts | profit per craft at current prices | `crafts.ts` |
 | Levelling | cheapest 1-300 route per profession | `levelling.ts` |
 | Record | how Deals and Resets picks turned out a day later (only picks a day old are listed) | `record.ts` |
@@ -185,8 +185,8 @@ with the number on hover.
 - The item page's time-of-day chart (`hours.ts`) only names cheap and dear
   hours when odd and even days agree (`repeats`, correlation 0.6 or more).
   With a few days of history most items fail that. As a group, Waylaid Crates
-  were clearly cheapest about 20:00-00:00 UTC and dearest 10:00-15:00 on 13-18
-  Nov, though few pass one by one.
+  were cheaper in the evening than the daytime on every day from 13 to 21 Nov,
+  though the gap halved over that time; the Favor tab shows it while it holds.
 - The skill-up formula and some vendor prices are from Classic or Wowhead,
   not confirmed in game.
 - The economy is days old, so price swings are large and totals for the top

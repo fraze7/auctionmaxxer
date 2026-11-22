@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { collectOnce } from "./collector.js";
 import type { DataSource } from "./dataSource.js";
 import { openDb } from "./db.js";
-import { hourlyPattern } from "./hours.js";
+import { groupHours, hourlyPattern } from "./hours.js";
 
 const HOUR = 3600;
 
@@ -78,5 +78,30 @@ describe("hourlyPattern", () => {
   it("copes with an item that was never listed", async () => {
     const pattern = hourlyPattern(await dbWith(24, () => 100), 113, 99);
     assert.deepEqual([pattern.days, pattern.ready, pattern.repeats], [0, false, false]);
+  });
+});
+
+describe("groupHours", () => {
+  it("names the cheapest and dearest four hours", async () => {
+    const db = await dbWith(8 * 24, (hour) => (hour >= 20 ? 80 : hour >= 10 && hour < 14 ? 120 : 100));
+    assert.deepEqual(groupHours(db, 113, [1]), {
+      cheapest: { from: 20, to: 0, ratio: 0.8 },
+      dearest: { from: 10, to: 14, ratio: 1.2 },
+    });
+  });
+
+  it("names nothing for a steady price", async () => {
+    const db = await dbWith(8 * 24, () => 100);
+    assert.deepEqual(groupHours(db, 113, [1]), { cheapest: null, dearest: null });
+  });
+
+  it("names nothing when odd and even days disagree", async () => {
+    const db = await dbWith(8 * 24, (hour, day) => ((day % 2 ? hour >= 20 : hour >= 8 && hour < 12) ? 80 : 100));
+    assert.equal(groupHours(db, 113, [1]).cheapest, null);
+  });
+
+  it("copes with items never listed", async () => {
+    const db = await dbWith(8 * 24, () => 100);
+    assert.deepEqual(groupHours(db, 113, [999]), { cheapest: null, dearest: null });
   });
 });

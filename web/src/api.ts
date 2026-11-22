@@ -229,6 +229,14 @@ export interface FavorResponse {
     complete: boolean
     steps: FavorPlanStep[]
   }
+  // The crates' cheapest and dearest four hours over the last week; null when not consistent.
+  crateHours: { cheapest: HourStretch | null; dearest: HourStretch | null }
+}
+
+export interface HourStretch {
+  from: number // UTC hour
+  to: number
+  ratio: number // price / the day's typical price
 }
 
 export const favorApi = {

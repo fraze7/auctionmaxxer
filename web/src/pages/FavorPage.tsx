@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { favorApi, type FavorCrate, type FavorResponse } from '../api.ts'
+import { favorApi, type FavorCrate, type FavorResponse, type HourStretch } from '../api.ts'
 import { DataTable, type Column } from '../components/DataTable.tsx'
 import { PriceTag } from '../components/PriceTag.tsx'
 import { EmptyState, ErrorState, LoadingState } from '../components/States.tsx'
@@ -35,6 +35,7 @@ export function FavorPage() {
           <p className="text-sm text-zinc-500">
             The cheapest Waylaid Crates to buy, fill and hand in, at current auction prices.
           </p>
+          {favor.data && <CrateHours hours={favor.data.crateHours} />}
         </div>
 
         <div className="flex rounded-md border border-zinc-700 text-sm">
@@ -341,5 +342,27 @@ function Stat({ label, hint, children }: { label: string; hint?: string | undefi
       <div className="tabular mt-0.5 text-base text-zinc-100">{children}</div>
       {hint && <div className="text-[11px] text-zinc-600">{hint}</div>}
     </div>
+  )
+}
+
+const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`
+const percent = (ratio: number) => Math.round(Math.abs(ratio - 1) * 100)
+
+// Only shown when the week's odd and even days agree (server/src/hours.ts).
+function CrateHours({ hours }: { hours: FavorResponse['crateHours'] }) {
+  const { cheapest, dearest } = hours
+  if (!cheapest) return null
+  const stretch = (s: HourStretch) => `${clock(s.from)}-${clock(s.to)} UTC`
+  return (
+    <p className="mt-1 text-sm text-emerald-300/90">
+      Crates have been cheapest around {stretch(cheapest)} this week, about {percent(cheapest.ratio)}% under the day's
+      usual price
+      {dearest && (
+        <>
+          , and dearest around {stretch(dearest)} (about {percent(dearest.ratio)}% over)
+        </>
+      )}
+      .
+    </p>
   )
 }

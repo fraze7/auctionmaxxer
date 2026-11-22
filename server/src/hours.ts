@@ -18,6 +18,12 @@ const MIN_SAMPLES = 5;
 // (18 Nov 2026) 29 of 464 busy items passed, against about 6 by chance.
 const MIN_AGREEMENT = 0.6;
 const MIN_SHARED_HOURS = 20;
+// For a group of items (the Waylaid Crates): the last week, four-hour
+// stretches, and a stretch must be 5% off the day's typical price on both
+// odd and even days to be named.
+const GROUP_DAYS = 7;
+const STRETCH_HOURS = 4;
+const MIN_GAP = 0.05;
 
 export interface HourOfDay {
   hour: number; // 0-23, UTC
@@ -32,7 +38,13 @@ export interface HourlyPattern {
   hours: HourOfDay[];
 }
 
-export function hourlyPattern(db: Db, houseId: number, itemId: number): HourlyPattern {
+interface Point {
+  takenAt: number;
+  minPrice: number;
+}
+
+// An item's cheapest prices over the last `days`, oldest first.
+function loadPoints(db: Db, houseId: number, days: number): (itemId: number) => Point[] {
   const latest = db
     .prepare<[number], { takenAt: number }>(
       `
@@ -42,37 +54,27 @@ export function hourlyPattern(db: Db, houseId: number, itemId: number): HourlyPa
     `,
     )
     .get(houseId);
-  const points = latest
-    ? db
-        .prepare<{ itemId: number; houseId: number; since: number }, { takenAt: number; minPrice: number }>(
-          `
-          SELECT s.taken_at AS takenAt, p.min_price AS minPrice
-          FROM commodity_prices p
-          JOIN snapshots s ON s.id = p.snapshot_id
-          WHERE p.item_id = @itemId AND s.house_id = @houseId AND s.kind = 'commodities' AND s.status = 'ok'
-            AND s.taken_at > @since
-          ORDER BY s.taken_at
-        `,
-        )
-        .all({ itemId, houseId, since: latest.takenAt - WINDOW_DAYS * DAY_SECONDS })
-    : [];
+  if (!latest) return () => [];
+  const query = db.prepare<{ itemId: number; houseId: number; since: number }, Point>(
+    `
+    SELECT s.taken_at AS takenAt, p.min_price AS minPrice
+    FROM commodity_prices p
+    JOIN snapshots s ON s.id = p.snapshot_id
+    WHERE p.item_id = @itemId AND s.house_id = @houseId AND s.kind = 'commodities' AND s.status = 'ok'
+      AND s.taken_at > @since
+    ORDER BY s.taken_at
+  `,
+  );
+  return (itemId) => query.all({ itemId, houseId, since: latest.takenAt - days * DAY_SECONDS });
+}
 
-  const emptyHours = (): number[][] => Array.from({ length: 24 }, () => []);
+const emptyHours = (): number[][] => Array.from({ length: 24 }, () => []);
+
+export function hourlyPattern(db: Db, houseId: number, itemId: number): HourlyPattern {
+  const points = loadPoints(db, houseId, WINDOW_DAYS)(itemId);
   const byHour = emptyHours();
   const halves = [emptyHours(), emptyHours()];
-  for (const point of points) {
-    const around = points.filter((other) => Math.abs(other.takenAt - point.takenAt) <= DAY_SECONDS / 2);
-    // Without both halves of the day the "typical" price leans one way.
-    const before = around.some((other) => other.takenAt <= point.takenAt - 8 * HOUR_SECONDS);
-    const after = around.some((other) => other.takenAt >= point.takenAt + 8 * HOUR_SECONDS);
-    if (around.length < MIN_AROUND || !before || !after) continue;
-    const typical = median(around.map((other) => other.minPrice));
-    if (typical <= 0) continue;
-    const hour = new Date(point.takenAt * 1000).getUTCHours();
-    const ratio = point.minPrice / typical;
-    byHour[hour]!.push(ratio);
-    halves[Math.floor(point.takenAt / DAY_SECONDS) % 2]![hour]!.push(ratio);
-  }
+  addRatios(points, byHour, halves);
 
   const hours = byHour.map((ratios, hour): HourOfDay => {
     if (ratios.length < MIN_SAMPLES) return { hour, ratio: null, samples: ratios.length };
@@ -88,6 +90,79 @@ export function hourlyPattern(db: Db, houseId: number, itemId: number): HourlyPa
     repeats: ready && agreement(halves[0]!, halves[1]!) >= MIN_AGREEMENT,
     hours,
   };
+}
+
+export interface Stretch {
+  from: number; // first hour, UTC
+  to: number; // the hour it ends, UTC (from + 4, wrapping at midnight)
+  ratio: number; // price / the day's typical price, averaged over the stretch
+}
+
+export interface GroupHours {
+  cheapest: Stretch | null;
+  dearest: Stretch | null;
+}
+
+// The cheapest and dearest four hours of the day for a group of items taken
+// together, over the last week. Each is null unless odd and even days agree.
+export function groupHours(db: Db, houseId: number, itemIds: readonly number[]): GroupHours {
+  const pointsOf = loadPoints(db, houseId, GROUP_DAYS);
+  const byHour = emptyHours();
+  const halves = [emptyHours(), emptyHours()];
+  for (const itemId of itemIds) addRatios(pointsOf(itemId), byHour, halves);
+
+  const shape = (hours: number[][], minSamples: number) =>
+    hours.map((ratios) => (ratios.length >= minSamples ? middle(ratios) : null));
+  const whole = shape(byHour, MIN_SAMPLES);
+  const parts = halves.map((half) => shape(half, 1));
+  const average = (values: (number | null)[], from: number): number | null => {
+    let sum = 0;
+    for (let step = 0; step < STRETCH_HOURS; step++) {
+      const value = values[(from + step) % 24];
+      if (value === null || value === undefined) return null;
+      sum += value;
+    }
+    return sum / STRETCH_HOURS;
+  };
+
+  const pick = (better: (a: number, b: number) => boolean, holds: (ratio: number) => boolean): Stretch | null => {
+    let best: Stretch | null = null;
+    for (let from = 0; from < 24; from++) {
+      const ratio = average(whole, from);
+      if (ratio !== null && (!best || better(ratio, best.ratio))) best = { from, to: (from + STRETCH_HOURS) % 24, ratio };
+    }
+    if (!best) return null;
+    const from = best.from;
+    return parts.every((part) => {
+      const ratio = average(part, from);
+      return ratio !== null && holds(ratio);
+    })
+      ? { ...best, ratio: Math.round(best.ratio * 1000) / 1000 }
+      : null;
+  };
+
+  return {
+    cheapest: pick((a, b) => a < b, (ratio) => ratio <= 1 - MIN_GAP),
+    dearest: pick((a, b) => a > b, (ratio) => ratio >= 1 + MIN_GAP),
+  };
+}
+
+// Adds each point's price / the day around it to its hour, and to the odd- or
+// even-day half.
+function addRatios(points: readonly Point[], byHour: number[][], halves: number[][][]): void {
+  for (const point of points) {
+    const around = points.filter((other) => Math.abs(other.takenAt - point.takenAt) <= DAY_SECONDS / 2);
+    // Without both halves of the day the "typical" price leans one way.
+    const before = around.some((other) => other.takenAt <= point.takenAt - 8 * HOUR_SECONDS);
+    const after = around.some((other) => other.takenAt >= point.takenAt + 8 * HOUR_SECONDS);
+    if (around.length < MIN_AROUND || !before || !after) continue;
+    const typical = median(around.map((other) => other.minPrice));
+    if (typical <= 0) continue;
+    const hour = new Date(point.takenAt * 1000).getUTCHours();
+    const ratio = point.minPrice / typical;
+    byHour[hour]!.push(ratio);
+    halves[Math.floor(point.takenAt / DAY_SECONDS) % 2]![hour]!.push(ratio);
+  }
 }
 
 // Unlike deals.ts's median, this keeps the fraction: these are ratios, not copper.

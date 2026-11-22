@@ -9,7 +9,7 @@ import { PREFIXES as RECIPE_PREFIXES } from "./plans.js";
 import { PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
-import { hourlyPattern } from "./hours.js";
+import { groupHours, hourlyPattern } from "./hours.js";
 import { planPrices } from "./plans.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
@@ -458,6 +458,11 @@ export function createApp(options: ApiOptions): Express {
       takenAt: data.takenAt,
       crates,
       plan: planFavor(data.crates, data.books, query.target),
+      crateHours: groupHours(
+        db,
+        houseId,
+        data.crates.map((crate) => crate.itemId),
+      ),
     });
   });
 
