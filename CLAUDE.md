@@ -28,7 +28,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 243 tests
+cd server && npm test          # node:test via tsx; 248 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -83,7 +83,7 @@ Prices are whole copper; times are Unix seconds.
 | Deals, Resets view | buyouts that leave a much higher cheapest price (`?show=resets`) | `resets.ts` |
 | Vendor | items listed below what a vendor pays | `vendor.ts` |
 | Favor | cheapest Waylaid Crates for Merchant's Favor, plus the crates' cheapest and dearest four hours of the last week when odd and even days agree (`groupHours`) | `favor.ts`, `crates.ts`, `hours.ts` |
-| Crafts | profit per craft at current prices | `crafts.ts` |
+| Crafts | profit per craft at current prices, for every recipe a trainer or vendor teaches or that has been seen for sale on the auction house (with its price), Cooking included | `crafts.ts`, `professions/catalogue.ts` |
 | Levelling | cheapest 1-300 route per profession | `levelling.ts` |
 | Record | how Deals and Resets picks turned out a day later (only picks a day old are listed) | `record.ts` |
 | Watchlist | price rules and per-tab alerts, sent through Discord | `watchlist.ts`, `tabAlerts.ts`, `notify.ts` |
@@ -150,6 +150,21 @@ to Forever are matched by item ID (`PLAN_ITEMS`) because they had never
 been listed, so their names were unknown. Each data file's header comment says
 which were checked in game.
 
+### Recipe catalogue (Crafts)
+
+`professions/catalogue.json` holds every recipe that makes an item for the six
+crafting professions and Cooking, from Wowhead's list pages (22 Nov 2026):
+`[spell, name, learn, yellow, grey, item, quantity, reagents, source]`,
+source `t` trainer, `v` vendor, `b` bought from players (drops and the rest).
+Specialisation recipes are left out. `CRAFT_PROFESSIONS` (Crafts, Crafts
+alerts, the Character tab) adds it to each profession; Levelling keeps its
+own lists. A `b` recipe only shows once its recipe item has been seen on the
+auction house, matched by name (`recipeKey` in `plans.ts`). Cooldown crafts
+(`COOLDOWNS` in `crafts.ts`) count as one craft. To rebuild the file, save
+each list page's `listviewspells` as JSON (the browser pane cannot `fetch`
+to localhost from Wowhead, but a form POST to a local receiver works) and
+convert it.
+
 ### Adding or fixing recipe data
 
 Open `https://www.wowhead.com/forever/spells/professions/<name>` in a browser
@@ -187,6 +202,10 @@ with the number on hover.
   With a few days of history most items fail that. As a group, Waylaid Crates
   were cheaper in the evening than the daytime on every day from 13 to 21 Nov,
   though the gap halved over that time; the Favor tab shows it while it holds.
+- Crafts does not check reputation: Blizzard's item data shows the skill and
+  specialisation a recipe needs but not reputation (checked 22 Nov 2026 on
+  Timbermaw and Argent Dawn patterns), so faction recipes show up as if anyone
+  could learn them.
 - The skill-up formula and some vendor prices are from Classic or Wowhead,
   not confirmed in game.
 - The economy is days old, so price swings are large and totals for the top

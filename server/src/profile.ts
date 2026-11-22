@@ -1,5 +1,5 @@
 import type { Db } from "./db.js";
-import { ALL_PROFESSIONS } from "./professions/index.js";
+import { CRAFT_PROFESSIONS } from "./professions/index.js";
 
 // The owner's character: professions and skill levels. Levelling starts from
 // these, Crafts hides what the character cannot make, and Crafts alerts only
@@ -13,7 +13,7 @@ export interface ProfileProfession {
 }
 
 // Everything a character can be given on the site.
-const KNOWN: Array<Omit<ProfileProfession, "skill">> = ALL_PROFESSIONS.map((p) => ({
+const KNOWN: Array<Omit<ProfileProfession, "skill">> = CRAFT_PROFESSIONS.map((p) => ({
   id: p.id,
   name: p.name,
   kind: p.id === "mining" ? "gathering" : "crafting",
@@ -47,7 +47,7 @@ export function saveProfile(db: Db, skills: Record<string, number>): void {
 // Whether the character can make a recipe. With no profession saved there is
 // no profile to go by, so everything counts. Mining counts, for its smelting.
 export function canMake(skills: Skills, professionId: string, learn: number): boolean {
-  const hasCrafting = ALL_PROFESSIONS.some((p) => skills.has(p.id));
+  const hasCrafting = CRAFT_PROFESSIONS.some((p) => skills.has(p.id));
   if (!hasCrafting) return true;
   return (skills.get(professionId) ?? 0) >= learn;
 }

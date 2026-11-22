@@ -47,6 +47,32 @@ async function dbWith(listings: Array<[number, number, number]>, gear: Array<[nu
 }
 
 describe("findCrafts", () => {
+  it("counts a craft with a cooldown once", async () => {
+    const tailor: Profession = {
+      ...TEST,
+      recipes: [{ spellId: 18560, name: "Mooncloth", learn: 1, yellow: 10, grey: 20, makes: { itemId: 3, quantity: 1 }, reagents: [{ itemId: 1, quantity: 2 }] }],
+    };
+    const db = await dbWith([[1, 10, 1000], [3, 100, 40]]);
+    const [mooncloth] = findCrafts(db, 113, [tailor], 0.05).crafts;
+    assert.deepEqual([mooncloth?.count, mooncloth?.heldBy, mooncloth?.totalProfit], [1, "cooldown", 75]);
+  });
+
+  it("shows a bought recipe only once it has been seen on the auction house, with its price", async () => {
+    const withSources: Profession = {
+      ...TEST,
+      recipes: TEST.recipes.map((recipe) => ({ ...recipe, source: recipe.name === "Potion" ? "bought" : "trainer" })),
+    };
+    const market: Array<[number, number, number]> = [[1, 10, 100], [2, 50, 100], [3, 100, 40]];
+    const unseen = await dbWith(market);
+    assert.deepEqual(findCrafts(unseen, 113, [withSources], 0.05).crafts.map((c) => c.name), ["Oil"]);
+
+    const seen = await dbWith(market, [[50, 450], [50, 300]]);
+    seen.prepare("UPDATE items SET name = 'Recipe: Potion' WHERE item_id = 50").run();
+    const crafts = findCrafts(seen, 113, [withSources], 0.05).crafts;
+    assert.deepEqual(crafts.find((c) => c.name === "Potion")?.recipe, { source: "bought", itemId: 50, price: 300, listed: 2 });
+    assert.deepEqual(crafts.find((c) => c.name === "Oil")?.recipe, { source: "trainer", itemId: null, price: null, listed: 0 });
+  });
+
   it("prices gear from its cheapest listing, or a vendor when that pays more", async () => {
     const smith: Profession = {
       ...TEST,

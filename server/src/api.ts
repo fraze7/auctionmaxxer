@@ -6,7 +6,7 @@ import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
 import { PREFIXES as RECIPE_PREFIXES } from "./plans.js";
-import { PROFESSIONS } from "./professions/index.js";
+import { CRAFT_PROFESSIONS, PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
 import { groupHours, hourlyPattern } from "./hours.js";
@@ -550,8 +550,8 @@ export function createApp(options: ApiOptions): Express {
       house: houseId,
       ahCut,
       count: query.count ?? null,
-      professions: Object.values(PROFESSIONS).map((p) => ({ id: p.id, name: p.name })),
-      ...findCrafts(db, houseId, Object.values(PROFESSIONS), ahCut, query.count),
+      professions: CRAFT_PROFESSIONS.map((p) => ({ id: p.id, name: p.name })),
+      ...findCrafts(db, houseId, CRAFT_PROFESSIONS, ahCut, query.count),
     });
   });
 

@@ -1,6 +1,8 @@
 import type { Profession } from "../levelling.js";
 import { ALCHEMY } from "./alchemy.js";
 import { BLACKSMITHING } from "./blacksmithing.js";
+import { withCatalogue } from "./catalogue.js";
+import { COOKING } from "./cooking.js";
 import { ENCHANTING } from "./enchanting.js";
 import { ENGINEERING } from "./engineering.js";
 import { LEATHERWORKING } from "./leatherworking.js";
@@ -19,3 +21,7 @@ export const PROFESSIONS = {
 } satisfies Record<string, Profession>;
 
 export const ALL_PROFESSIONS: Profession[] = Object.values(PROFESSIONS);
+
+// Crafts and the character profile: every profession with its full recipe
+// catalogue, plus Cooking.
+export const CRAFT_PROFESSIONS: Profession[] = [...ALL_PROFESSIONS, COOKING].map(withCatalogue);

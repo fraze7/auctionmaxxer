@@ -17,7 +17,7 @@ describe("the character profile", () => {
         ["mining", "gathering", 200],
       ],
     );
-    assert.equal(profile.length, 7);
+    assert.equal(profile.length, 8); // the seven Levelling professions and Cooking
   });
 
   it("replaces the whole profile on save", () => {

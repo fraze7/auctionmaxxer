@@ -2,6 +2,7 @@ import type { Db } from "./db.js";
 import { costToBuy } from "./favor.js";
 import { estimateSales } from "./liquidity.js";
 import { loadMarket, type Profession, type Recipe } from "./levelling.js";
+import { recipeItemPrices, recipeKey } from "./plans.js";
 
 // Which recipes make something that sells for more than its materials cost.
 // The first craft is priced at the cheapest listings. Making more walks up the
@@ -21,12 +22,24 @@ const MAX_COUNT = 1000;
 // listings are often asking prices nobody pays.
 export const MIN_GEAR_LISTINGS = 3;
 
+// Crafts with a cooldown of a day or more (transmutes, Mooncloth, Cured
+// Rugged Hide): one per cooldown, so they are priced for one craft.
+const COOLDOWNS = new Set([11479, 11480, 17187, 17559, 17560, 17561, 17562, 17563, 17564, 17565, 17566, 1317279, 18560, 19047]);
+
 export interface CraftMaterial {
   itemId: number;
   name: string;
   quantity: number;
   unitCost: number;
   source: "vendor" | "auction" | "crafted"; // crafted = made from its own inputs, which was cheaper
+}
+
+// Where the recipe comes from; a bought one carries its auction price.
+export interface CraftRecipe {
+  source: "trainer" | "vendor" | "bought";
+  itemId: number | null; // the recipe item, when seen on the auction house
+  price: number | null; // cheapest listing now; null = none listed
+  listed: number;
 }
 
 export interface Craft {
@@ -49,10 +62,11 @@ export interface Craft {
   totalCost: number;
   totalProfit: number;
   limited: boolean; // fewer than asked for: the materials are not all on sale
-  // What stopped the count when none was asked for: materials getting too dear, or a day's sales.
-  heldBy: "materials" | "sales" | null;
+  // What stopped the count: materials getting too dear, a day's sales (both only when none was asked for), or a cooldown.
+  heldBy: "materials" | "sales" | "cooldown" | null;
   estimated: boolean; // part of the total is beyond the stored price levels
   soldPerDay: number | null; // estimate for the product, see liquidity.ts; null = too little history
+  recipe: CraftRecipe;
 }
 
 export interface CraftData {
@@ -104,6 +118,9 @@ export function findCrafts(
     LEFT JOIN item_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
     WHERE i.item_id = @itemId
   `);
+
+  const nameOf = db.prepare<[number], { name: string | null }>("SELECT name FROM items WHERE item_id = ?");
+  const recipeItems = recipeItemPrices(db, houseId);
 
   const sales = estimateSales(db, houseId);
   const crafts: Craft[] = [];
@@ -174,6 +191,15 @@ export function findCrafts(
 
     for (const recipe of profession.recipes) {
       if (recipe.makes.quantity === 0) continue;
+      const recipeItem = recipe.source === "bought" || recipe.plan ? recipeItems.get(recipeKey(recipe.name)) : undefined;
+      // A recipe that has to be bought, never seen on the auction house, can't be had.
+      if (recipe.source === "bought" && !recipeItem) continue;
+      const recipeInfo: CraftRecipe = {
+        source: recipe.source ?? "trainer",
+        itemId: recipeItem?.itemId ?? null,
+        price: recipeItem?.price ?? null,
+        listed: recipeItem?.listed ?? 0,
+      };
       const product = prices.get(recipe.makes.itemId);
       const gear = product ? undefined : gearOf.get({ itemId: recipe.makes.itemId, snapshotId: snapshot.id });
       const gearSale =
@@ -190,7 +216,11 @@ export function findCrafts(
         if (unitCost === null) break;
         materials.push({
           itemId: reagent.itemId,
-          name: profession.itemNames[reagent.itemId] ?? `Item #${reagent.itemId}`,
+          name:
+            profession.itemNames[reagent.itemId] ??
+            prices.get(reagent.itemId)?.name ??
+            nameOf.get(reagent.itemId)?.name ??
+            `Item #${reagent.itemId}`,
           quantity: reagent.quantity,
           unitCost: Math.round(unitCost),
           source: useCrafted ? "crafted" : vendor[reagent.itemId] !== undefined ? "vendor" : "auction",
@@ -225,6 +255,7 @@ export function findCrafts(
           heldBy: null,
           estimated: false,
           soldPerDay: null,
+          recipe: recipeInfo,
         });
         continue;
       }
@@ -256,6 +287,11 @@ export function findCrafts(
           }
         }
       }
+      const cooldown = COOLDOWNS.has(recipe.spellId);
+      if (cooldown) {
+        count = 1;
+        heldBy = "cooldown";
+      }
       const total = (count > 0 ? totalFor(recipe, count) : null) ?? { cost, estimated: false };
       count = Math.max(count, 1);
 
@@ -279,10 +315,11 @@ export function findCrafts(
         count,
         totalCost: total.cost,
         totalProfit: sale * count - total.cost,
-        limited: wanted !== undefined && count < Math.min(wanted, MAX_COUNT),
+        limited: !cooldown && wanted !== undefined && count < Math.min(wanted, MAX_COUNT),
         heldBy,
         estimated: total.estimated,
         soldPerDay,
+        recipe: recipeInfo,
       });
     }
   }

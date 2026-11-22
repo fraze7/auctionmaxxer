@@ -415,9 +415,15 @@ export interface Craft {
   totalCost: number
   totalProfit: number
   limited: boolean // fewer than asked for: materials are not all on sale
-  heldBy: 'materials' | 'sales' | null // what stopped the count when none was asked for
+  heldBy: 'materials' | 'sales' | 'cooldown' | null // what stopped the count
   estimated: boolean // part of the total is beyond the stored price levels
   soldPerDay: number | null // estimate for the product; null = too little history
+  recipe: {
+    source: 'trainer' | 'vendor' | 'bought' // bought = from another player, on the auction house
+    itemId: number | null // the recipe item, when seen on the auction house
+    price: number | null // cheapest listing now; null = none listed
+    listed: number
+  }
 }
 
 export interface CraftsResponse {

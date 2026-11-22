@@ -19,6 +19,8 @@ export interface Recipe {
   makes: { itemId: number; quantity: number };
   reagents: Array<{ itemId: number; quantity: number }>;
   plan?: boolean; // taught by a bought plan, not a trainer
+  // Where the recipe comes from (catalogue.ts); unset in hand-written test data.
+  source?: "trainer" | "vendor" | "bought";
 }
 
 export interface Profession {

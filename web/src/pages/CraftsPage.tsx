@@ -120,6 +120,11 @@ export function CraftsPage() {
             (&ldquo;to a vendor&rdquo;), which takes any number. Gear sells one at a time, so it is priced for a single craft at its cheapest
             listing, or at what a vendor pays if that is more. With fewer than three listed, the listings are ignored
             and gear is priced at the vendor.
+            Recipe says where the recipe comes from: a trainer, a vendor, or another player (with its cheapest
+            listing now, and how many crafts it takes to pay for itself). Recipes sold by other players are only
+            listed once seen on the auction house. Vendor and bought recipes are not checked for reputation, and
+            specialisation recipes are left out. Transmutes, Mooncloth and Cured Rugged Hide have a cooldown, so they
+            count as one craft.
             &ldquo;Sells&rdquo; is a rough estimate from cheap listings disappearing between hourly snapshots: fast is
             100 or more a day, steady 10 or more, slow fewer.
           </p>
@@ -168,8 +173,8 @@ const COLUMNS: Column<Craft>[] = [
           <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">gear</span>
         )}
         {craft.makes > 1 && <span className="tabular text-zinc-500"> ×{formatNumber(craft.makes)}</span>}
-        {craft.plan && (
-          <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">plan</span>
+        {craft.heldBy === 'cooldown' && (
+          <span className="ml-1.5 rounded border border-zinc-700 px-1 text-[11px] text-zinc-400">cooldown</span>
         )}
         <div className="text-xs text-zinc-500">
           {craft.profession.name} {craft.skill}
@@ -261,4 +266,42 @@ const COLUMNS: Column<Craft>[] = [
     render: (craft) => formatNumber(craft.listed),
     sortValue: (craft) => craft.listed,
   },
+  {
+    key: 'recipe',
+    header: 'Recipe',
+    align: 'right',
+    render: (craft) => <RecipeCell craft={craft} />,
+    // Trainer and vendor first, then bought recipes by price.
+    sortValue: (craft) => (craft.recipe.source === 'bought' ? (craft.recipe.price ?? Number.MAX_SAFE_INTEGER) : 0),
+  },
 ]
+
+// Where the recipe comes from; a bought one shows its cheapest listing and
+// how many crafts it takes to pay for itself.
+function RecipeCell({ craft }: { craft: Craft }) {
+  const { source, itemId, price, listed } = craft.recipe
+  if (source !== 'bought') return <span className="text-zinc-400">{source === 'trainer' ? 'Trainer' : 'Vendor'}</span>
+  const payback = price !== null && craft.profit > 0 ? Math.ceil(price / craft.profit) : null
+  return (
+    <span className="whitespace-nowrap">
+      {price === null ? (
+        <span className="text-zinc-500">none listed</span>
+      ) : itemId !== null ? (
+        <a
+          href={`https://www.wowhead.com/forever/item=${itemId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:underline"
+        >
+          <PriceTag copper={price} />
+        </a>
+      ) : (
+        <PriceTag copper={price} />
+      )}
+      <span className="block text-xs text-zinc-500">
+        {price !== null && `${formatNumber(listed)} listed`}
+        {payback !== null && ` · pays back in ${formatNumber(payback)}`}
+      </span>
+    </span>
+  )
+}

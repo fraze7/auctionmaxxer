@@ -72,3 +72,43 @@ export function planPrices(db: Db, houseId: number, recipeNames: readonly string
   }
   return prices;
 }
+
+// "Recipe: Transmute Arcanite" and the spell "Transmute: Arcanite" should meet.
+export function recipeKey(name: string): string {
+  const prefix = PREFIXES.find((p) => name.startsWith(p));
+  return (prefix ? name.slice(prefix.length) : name).replace(/:/g, "").toLowerCase();
+}
+
+// Every recipe item ever seen on the auction house, keyed by recipeKey of its
+// name, with its price in the latest snapshot.
+export function recipeItemPrices(db: Db, houseId: number): Map<string, PlanPrice> {
+  const latest = db
+    .prepare<[number], { id: number }>(
+      `
+      SELECT id FROM snapshots
+      WHERE house_id = ? AND kind = 'commodities' AND status = 'ok'
+      ORDER BY taken_at DESC LIMIT 1
+    `,
+    )
+    .get(houseId);
+  const like = PREFIXES.map((_, index) => `i.name LIKE @p${index}`).join(" OR ");
+  const rows = db
+    .prepare<Record<string, string | number>, { itemId: number; name: string; price: number | null; listed: number | null }>(
+      `
+      SELECT i.item_id AS itemId, i.name, now.min_buyout AS price, now.listing_count AS listed
+      FROM items i
+      LEFT JOIN item_prices now ON now.item_id = i.item_id AND now.snapshot_id = @snapshotId
+      WHERE (${like}) AND EXISTS (SELECT 1 FROM item_prices p WHERE p.item_id = i.item_id)
+    `,
+    )
+    .all({ snapshotId: latest?.id ?? -1, ...Object.fromEntries(PREFIXES.map((p, index) => [`p${index}`, `${p}%`])) });
+  const prices = new Map<string, PlanPrice>();
+  for (const row of rows) {
+    const key = recipeKey(row.name);
+    const known = prices.get(key);
+    // Two items of one name: keep the one on sale, then the cheaper.
+    if (known && known.price !== null && (row.price === null || row.price >= known.price)) continue;
+    prices.set(key, { itemId: row.itemId, price: row.price, listed: row.listed ?? 0, seen: true });
+  }
+  return prices;
+}
