@@ -194,6 +194,16 @@ describe("findCrafts", () => {
     ]);
   });
 
+  it("prices Smelt Heavy Thorium from its ore", async () => {
+    const db = await dbWith([[248815, 1900, 100], [251291, 2500, 50]]);
+    const bar = findCrafts(db, 113, [SMELTING], 0.05).crafts.find((c) => c.name === "Smelt Heavy Thorium");
+    assert.deepEqual([bar?.cost, bar?.skill, bar?.materials.map((m) => [m.name, m.quantity])], [
+      1900,
+      300,
+      [["Heavy Thorium Ore", 1]],
+    ]);
+  });
+
   it("leaves out crafts with no product on sale or a missing material", async () => {
     const db = await dbWith([[1, 10, 100]]);
     assert.deepEqual(findCrafts(db, 113, [TEST], 0.05).crafts, []);

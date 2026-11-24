@@ -3,11 +3,13 @@ import { r } from "./recipe.js";
 
 // Smelting recipes for WoW: Forever, from Wowhead's spell list (14 Nov 2026).
 // Coal's price is what the owner pays a vendor in game (16 Nov 2026).
-// Smelt Azerothium, new to Forever, added 24 Nov 2026 (trainer, Wowhead).
+// Smelt Azerothium and Smelt Heavy Thorium, new to Forever, added 24 Nov 2026
+// (trainer, Wowhead).
 
 const COAL = 3857;
 const COAL_PRICE = 405;
 const PITCHBLENDE = 249426;
+const HEAVY_THORIUM_ORE = 248815;
 
 const ORE_NAMES = {
   2770: "Copper Ore",
@@ -20,6 +22,7 @@ const ORE_NAMES = {
   7911: "Truesilver Ore",
   10620: "Thorium Ore",
   [PITCHBLENDE]: "Pitchblende",
+  [HEAVY_THORIUM_ORE]: "Heavy Thorium Ore",
 };
 
 // Prices bars from ore for a character who also has Mining. `learn` is the
@@ -64,6 +67,7 @@ export const SMELTING: Profession = {
     r(10098, "Smelt Truesilver", [230, 230, 230], [6037, 1], [[7911, 1]]),
     r(16153, "Smelt Thorium", [250, 250, 250], [12359, 1], [[10620, 1]]),
     r(1249637, "Smelt Azerothium", [275, 275, 275], [249726, 1], [[PITCHBLENDE, 2], [COAL, 1]]),
+    r(1306126, "Smelt Heavy Thorium", [300, 300, 315], [251291, 1], [[HEAVY_THORIUM_ORE, 1]]),
   ],
   vendorPrices: { [COAL]: COAL_PRICE },
   itemNames: { ...ORE_NAMES, 2840: "Copper Bar", 3576: "Tin Bar", 3575: "Iron Bar" },
