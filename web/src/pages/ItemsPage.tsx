@@ -83,7 +83,7 @@ export function ItemsPage() {
           <h1 className="text-lg font-semibold text-zinc-100">Items</h1>
           <p className="text-sm text-zinc-500">
             {q
-              ? 'Every commodity seen so far, plus recipes, patterns and plans, with current prices.'
+              ? 'Every item seen so far, gear and recipes included, with current prices.'
               : 'Listed right now, most listings first.'}
           </p>
         </div>

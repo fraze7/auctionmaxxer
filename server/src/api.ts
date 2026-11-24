@@ -5,7 +5,6 @@ import type { Db } from "./db.js";
 import { evaluateItem, findDeals } from "./deals.js";
 import { loadFavorData, planFavor, priceCrates } from "./favor.js";
 import { loadMarket, MAX_SKILL, planLevelling, withHelper, type Profession } from "./levelling.js";
-import { PREFIXES as RECIPE_PREFIXES } from "./plans.js";
 import { CRAFT_PROFESSIONS, PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
@@ -189,14 +188,13 @@ export function createApp(options: ApiOptions): Express {
     LEFT JOIN commodity_prices p ON p.item_id = i.item_id AND p.snapshot_id = @snapshotId
     LEFT JOIN item_prices r ON r.item_id = i.item_id AND r.snapshot_id = @snapshotId
   `;
-  const IS_RECIPE = RECIPE_PREFIXES.map((prefix) => `i.name LIKE '${prefix}%'`).join(" OR ");
-
   // Without a search: only commodities listed now, busiest first. A search also
-  // finds recipes and items not listed right now (price: null), A to Z.
+  // finds items sold one at a time (gear, recipes) and items not listed right now
+  // (price: null), A to Z.
   const SEARCH_FROM = `
     FROM items i
     ${PRICE_JOINS}
-    WHERE (i.kind = 'commodity' OR (@q <> '' AND (${IS_RECIPE})))
+    WHERE (i.kind = 'commodity' OR @q <> '')
       AND (@q = '' OR i.name LIKE @pattern ESCAPE '\\' OR CAST(i.item_id AS TEXT) = @q)
       AND (@q <> '' OR p.item_id IS NOT NULL)
   `;

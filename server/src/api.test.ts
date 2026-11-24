@@ -273,7 +273,7 @@ describe("GET /api/items/:id", () => {
   });
 });
 
-describe("recipes sold one at a time", () => {
+describe("items sold one at a time", () => {
   const RECIPE = 12958;
   const HELM = 40;
 
@@ -287,11 +287,12 @@ describe("recipes sold one at a time", () => {
     return db;
   }
 
-  it("are found by a search, unlike gear, and stay out of the plain list", async () => {
+  it("are found by a search, gear and recipes alike, and stay out of the plain list", async () => {
     await withApi(await recipeDb(), async (get) => {
       const { body } = await get("/api/items?q=transmut");
-      assert.deepEqual(body.items.map((item: { id: number }) => item.id), [RECIPE]);
-      assert.equal(body.total, 1);
+      assert.deepEqual(body.items.map((item: { id: number }) => item.id), [RECIPE, HELM]);
+      assert.equal(body.total, 2);
+      assert.equal(body.items[1].price.minPrice, 100);
       assert.deepEqual(body.items[0].price, {
         minPrice: 500,
         medianPrice: 700,
