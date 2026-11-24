@@ -185,6 +185,15 @@ describe("findCrafts", () => {
     assert.equal(smelts.some((c) => c.spellId === 0), false); // the mining-nodes step makes nothing
   });
 
+  it("prices Smelt Azerothium from two Pitchblende and a Coal", async () => {
+    const db = await dbWith([[249426, 1800, 100], [3857, 300, 100], [249726, 4500, 50]]);
+    const bar = findCrafts(db, 113, [SMELTING], 0.05).crafts.find((c) => c.name === "Smelt Azerothium");
+    assert.deepEqual([bar?.cost, bar?.materials.map((m) => [m.name, m.quantity, m.source])], [
+      4005, // Coal at the vendor's 405, as for Steel
+      [["Pitchblende", 2, "auction"], ["Coal", 1, "vendor"]],
+    ]);
+  });
+
   it("leaves out crafts with no product on sale or a missing material", async () => {
     const db = await dbWith([[1, 10, 100]]);
     assert.deepEqual(findCrafts(db, 113, [TEST], 0.05).crafts, []);
