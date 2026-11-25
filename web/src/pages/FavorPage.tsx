@@ -129,10 +129,10 @@ function Plan({ data }: { data: FavorResponse }) {
         <thead className="text-xs text-zinc-500">
           <tr>
             <th className="pb-1.5 text-left font-medium">Buy</th>
-            <th className="pb-1.5 text-left font-medium">Fill each with</th>
-            <th className="pb-1.5 text-right font-medium">Crates cost</th>
-            <th className="pb-1.5 text-right font-medium">Materials cost</th>
-            <th className="pb-1.5 text-right font-medium">Favor</th>
+            <th className="pb-1.5 pl-3 text-left font-medium">Fill each with</th>
+            <th className="pb-1.5 pl-3 text-right font-medium">Crates cost</th>
+            <th className="pb-1.5 pl-3 text-right font-medium">Materials cost</th>
+            <th className="pb-1.5 pl-3 text-right font-medium">Favor</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800/70">
@@ -142,7 +142,7 @@ function Plan({ data }: { data: FavorResponse }) {
                 <span className="tabular text-zinc-400">{step.count} × </span>
                 <ItemLink id={step.crateId}>Waylaid Crate: {step.crateName}</ItemLink>
               </td>
-              <td className="py-1.5">
+              <td className="py-1.5 pl-3">
                 <span className="tabular text-zinc-400">{step.bundleQuantity} × </span>
                 <ItemLink id={step.bundleItemId}>{step.bundleItemName}</ItemLink>
                 <span className="tabular text-zinc-500">
@@ -150,13 +150,13 @@ function Plan({ data }: { data: FavorResponse }) {
                   ({formatNumber(step.bundleQuantity * step.count)} in all)
                 </span>
               </td>
-              <td className="tabular py-1.5 text-right">
+              <td className="tabular py-1.5 pl-3 text-right whitespace-nowrap">
                 <PriceTag copper={step.crateCost} />
               </td>
-              <td className="tabular py-1.5 text-right">
+              <td className="tabular py-1.5 pl-3 text-right whitespace-nowrap">
                 <PriceTag copper={step.materialsCost} />
               </td>
-              <td className="tabular py-1.5 text-right">
+              <td className="tabular py-1.5 pl-3 text-right whitespace-nowrap">
                 {formatNumber(step.favorEach * step.count)}
                 {step.favorEstimated && <Estimate />}
               </td>

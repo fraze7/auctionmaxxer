@@ -28,7 +28,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 248 tests
+cd server && npm test          # node:test via tsx; 250 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
