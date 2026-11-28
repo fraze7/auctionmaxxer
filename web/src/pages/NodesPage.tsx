@@ -89,18 +89,26 @@ function Upload() {
         />
       </label>
       {upload.isError && <span className="text-red-400">{upload.error.message}</span>}
-      {upload.isSuccess && (
-        <span className="text-green-400">
-          {upload.data.added === 0
-            ? `Nothing new: all ${formatNumber(upload.data.visits)} visits were already here.`
-            : `Added ${formatNumber(upload.data.added)} new visits.`}
-          {upload.data.skipped > 0 && (
-            <span className="text-amber-300"> {formatNumber(upload.data.skipped)} could not be read.</span>
-          )}
-          <span className="block text-xs text-zinc-500">Safe to /nodelog clear in game now.</span>
-        </span>
-      )}
+      {upload.isSuccess && <UploadResult {...upload.data} />}
     </div>
+  )
+}
+
+function UploadResult({ visits, added, skipped }: { visits: number; added: number; skipped: number }) {
+  const known = visits - added - skipped
+  return (
+    <span className="text-green-400">
+      {added > 0 && `Added ${formatNumber(added)} new ${added === 1 ? 'visit' : 'visits'}. `}
+      {known > 0 && `${formatNumber(known)} ${known === 1 ? 'was' : 'were'} already here. `}
+      {visits === 0 && 'The file has no visits yet.'}
+      {skipped > 0 ? (
+        <span className="block text-amber-300">
+          {formatNumber(skipped)} could not be read and were not saved. Keep the log in game (don't /nodelog clear).
+        </span>
+      ) : (
+        visits > 0 && <span className="block text-xs text-zinc-500">Safe to /nodelog clear in game now.</span>
+      )}
+    </span>
   )
 }
 

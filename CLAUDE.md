@@ -29,7 +29,7 @@ Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 263 tests
+cd server && npm test          # node:test via tsx; 264 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -203,7 +203,8 @@ to `WTF/Account/<account>/SavedVariables/NodeLog.lua` on logout or `/reload`;
 the page reads the file in the browser and posts its text as JSON, so it goes
 through the site login like any other request. `savedVariables.ts` parses the
 Lua. Forever's client has the modern spell API (`C_Spell`, no global
-`GetSpellInfo`), its TOC Interface is 16001, and it gives the loot source GUID:
+`GetSpellInfo`), its TOC Interface is 16001, `GetRealmName()` returns "" (so the
+realm is stored empty), and it gives the loot source GUID:
 Rich Thorium Vein is object 175404 as in Classic (checked in game 27 Nov 2026).
 `/nodelog debug` prints every gathering cast and logged tap in chat.
 

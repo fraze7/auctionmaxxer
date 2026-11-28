@@ -14,7 +14,7 @@ const LootSchema = z.object({
 
 const EntrySchema = z.object({
   id: z.string().min(1).max(200),
-  realm: z.string().min(1),
+  realm: z.string(), // Forever's client returns "" from GetRealmName()
   character: z.string().min(1),
   t: z.number().int().positive(),
   lastT: z.number().int().positive().optional(),

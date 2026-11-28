@@ -111,6 +111,12 @@ describe("importNodeLog", () => {
     assert.deepEqual(importNodeLog(db, file([good, noNode, fishing])), { visits: 3, added: 1, skipped: 2 });
   });
 
+  it("accepts an empty realm, which Forever's client gives", () => {
+    const db = openDb(":memory:");
+    const entry = visit("Rich Thorium Vein", [[ORE, "Thorium Ore", 4]], { realm: "" });
+    assert.deepEqual(importNodeLog(db, file([entry])), { visits: 1, added: 1, skipped: 0 });
+  });
+
   it("accepts a file with no visits yet", () => {
     assert.deepEqual(importNodeLog(openDb(":memory:"), file([])), { visits: 0, added: 0, skipped: 0 });
   });
