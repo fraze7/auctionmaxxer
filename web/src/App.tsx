@@ -7,6 +7,7 @@ import { FavorPage } from './pages/FavorPage.tsx'
 import { ItemPage } from './pages/ItemPage.tsx'
 import { ItemsPage } from './pages/ItemsPage.tsx'
 import { LevellingPage } from './pages/LevellingPage.tsx'
+import { NodesPage } from './pages/NodesPage.tsx'
 import { RecordPage } from './pages/RecordPage.tsx'
 import { VendorPage } from './pages/VendorPage.tsx'
 import { WatchlistPage } from './pages/WatchlistPage.tsx'
@@ -28,6 +29,7 @@ const GROUPS = [
       { to: '/crafts', name: 'Crafts' },
       { to: '/levelling', name: 'Levelling' },
       { to: '/favor', name: 'Favor' },
+      { to: '/nodes', name: 'Nodes' },
     ],
   },
   // One tab each, so these are plain links with no row under them.
@@ -94,6 +96,7 @@ export default function App() {
           <Route path="/vendor" element={<VendorPage />} />
           <Route path="/crafts" element={<CraftsPage />} />
           <Route path="/levelling" element={<LevellingPage />} />
+          <Route path="/nodes" element={<NodesPage />} />
           <Route path="/record" element={<RecordPage />} />
           <Route path="/character" element={<CharacterPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />

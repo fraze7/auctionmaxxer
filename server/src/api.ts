@@ -9,6 +9,7 @@ import { CRAFT_PROFESSIONS, PROFESSIONS } from "./professions/index.js";
 import { loadProfile, PROFILE_IDS, saveProfile } from "./profile.js";
 import { loadTrackRecord } from "./record.js";
 import { groupHours, hourlyPattern } from "./hours.js";
+import { importNodeLog, NodeLogFormatError, nodeStats } from "./nodes.js";
 import { planPrices } from "./plans.js";
 import { findResets } from "./resets.js";
 import { loadSettings } from "./settings.js";
@@ -635,6 +636,25 @@ export function createApp(options: ApiOptions): Express {
     const { id } = parse(ItemParams, req.params);
     if (!deleteWatch(db, id)) throw new HttpError(404, `No watchlist rule ${id}`);
     res.status(204).end(); // 204 = done, nothing to send back
+  });
+
+  // GET /api/nodes?house=  - what each node type drops and is worth, see nodes.ts
+  app.get("/api/nodes", (req, res) => {
+    const query = parse(z.object({ house: houseParam }), req.query);
+    const houseId = query.house ?? defaultHouseId;
+    const { ahCut } = loadSettings(db);
+    res.json({ house: houseId, ahCut, ...nodeStats(db, houseId, ahCut) });
+  });
+
+  // POST /api/nodes { savedVariables }  - the text of NodeLog.lua from WoW's SavedVariables folder
+  app.post("/api/nodes", requireJson, express.json({ limit: "16mb" }), (req, res) => {
+    const body = parse(z.object({ savedVariables: z.string().min(1) }), req.body);
+    try {
+      res.status(201).json(importNodeLog(db, body.savedVariables));
+    } catch (error) {
+      if (error instanceof NodeLogFormatError) throw new HttpError(400, error.message);
+      throw error;
+    }
   });
 
   // GET /api/settings  - the deals rule's current numbers

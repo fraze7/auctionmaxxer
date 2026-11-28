@@ -11,24 +11,25 @@ Notes for whoever works on the project next.
 
 ```
 server/            Node 24 + TypeScript (ESM), better-sqlite3, Express 5, zod 4
-  migrations/      001..009, applied in name order on start
+  migrations/      001..010, applied in name order on start
   src/             one module per feature, each with a .test.ts beside it
   src/professions/ recipe data per profession
 web/               React 19, Vite 8, Tailwind 4, react-router, TanStack Query
   src/pages/       one file per tab
   src/api.ts       response types and one function per endpoint
 deploy/            systemd units, Caddyfile, deploy.sh and setup scripts
+addon/NodeLog/     WoW addon that logs node loot for the Nodes tab (copy into Interface/AddOns)
 ```
 
 Server modules: `collector`/`job`/`scheduler` (fetch and store snapshots),
 `backfill` (item names and vendor prices), `deals`, `favor` + `crates`,
 `watchlist` + `notify` (Discord), `levelling`, `crafts`, `vendor`,
-`resets`, `liquidity`, `hours`, `api` (all routes), `settings`, `retention`, `backup`.
+`resets`, `liquidity`, `hours`, `nodes` + `savedVariables`, `api` (all routes), `settings`, `retention`, `backup`.
 
 ## Commands
 
 ```bash
-cd server && npm test          # node:test via tsx; 250 tests
+cd server && npm test          # node:test via tsx; 263 tests
 cd server && npx tsc --noEmit
 cd web && npm run build        # tsc -b && vite build
 cd web && npm run lint         # oxlint; a few known warnings
@@ -71,6 +72,11 @@ pointing at the copy (`npm run api`, port 3001), and run `npm run dev` in
 - `character_skills`: the owner's professions and skill levels (the
   Character tab). Levelling starts from them, Crafts and Crafts alerts only
   show what the character can make.
+- `node_visits`, `node_loot`: what the owner looted from mining and herb
+  nodes, one row per visit (all taps on one vein) and its items. Uploaded on
+  the Nodes tab from the NodeLog addon's SavedVariables file; the addon's
+  entry ID is the key, so re-uploading only updates. `item_name` comes from
+  the loot window, for items never seen on the auction house.
 - `settings`, `watches`, `alerts`.
 
 Prices are whole copper; times are Unix seconds.
@@ -87,10 +93,11 @@ Prices are whole copper; times are Unix seconds.
 | Crafts | profit per craft at current prices, for every recipe a trainer or vendor teaches or that has been seen for sale on the auction house (with its price), Cooking included | `crafts.ts`, `professions/catalogue.ts` |
 | Levelling | cheapest 1-300 route per profession | `levelling.ts` |
 | Record | how Deals and Resets picks turned out a day later (only picks a day old are listed) | `record.ts` |
+| Nodes | per node type: how often each item drops (with a 95% Wilson range), average per visit, and value per visit at the cheapest listing after the AH cut. Upload button for `NodeLog.lua` | `nodes.ts`, `savedVariables.ts` |
 | Watchlist | price rules and per-tab alerts, sent through Discord | `watchlist.ts`, `tabAlerts.ts`, `notify.ts` |
 
 The header groups the tabs: Buy now (Deals, Vendor, Record),
-Professions (Crafts, Levelling, Favor), then Items, Watchlist and
+Professions (Crafts, Levelling, Favor, Nodes), then Items, Watchlist and
 Character on their own (`GROUPS` in `web/src/App.tsx`).
 
 On a phone (below Tailwind's `md`, 768px) `DataTable` shows each row as a
@@ -186,6 +193,19 @@ Good for ranking, rough as a number: it misses sales within the hour and
 counts cancellations and buyouts as sales. Shown on Deals, Resets and Crafts
 as a band (fast, steady, slow, none seen; `web/src/components/SellRate.tsx`)
 with the number on hover.
+
+### Nodes and the NodeLog addon (`nodes.ts`, `addon/NodeLog`)
+
+The addon notes the node name when a Mining or Herb Gathering cast is sent,
+then logs the next loot window (the loot source GUID must be a GameObject).
+Taps on the same GUID within five minutes are one visit. WoW writes the log
+to `WTF/Account/<account>/SavedVariables/NodeLog.lua` on logout or `/reload`;
+the page reads the file in the browser and posts its text as JSON, so it goes
+through the site login like any other request. `savedVariables.ts` parses the
+Lua. Forever's client has the modern spell API (`C_Spell`, no global
+`GetSpellInfo`), its TOC Interface is 16001, and it gives the loot source GUID:
+Rich Thorium Vein is object 175404 as in Classic (checked in game 27 Nov 2026).
+`/nodelog debug` prints every gathering cast and logged tap in chat.
 
 ## Known limits and open questions
 

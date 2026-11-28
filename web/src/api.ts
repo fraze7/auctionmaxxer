@@ -551,3 +551,50 @@ export const profileApi = {
   // Replaces the whole profile: only the professions listed are kept.
   save: (skills: Record<string, number>) => send<Profile>('POST', '/api/profile', { skills }),
 }
+
+// --- Nodes (the NodeLog addon) ---
+
+export interface NodeItemStat {
+  itemId: number
+  name: string
+  quality: string | null
+  seen: boolean // ever seen on the auction house, so it has an item page
+  visitsWith: number
+  share: number // of visits that dropped it
+  shareLow: number // 95% range for share
+  shareHigh: number
+  perVisit: number
+  unitPrice: number | null // null = not listed now
+  valuePerVisit: number | null // after the AH cut
+}
+
+export interface NodeStat {
+  node: string
+  kind: 'mining' | 'herbalism'
+  visits: number
+  taps: number
+  lastVisitAt: number
+  zones: Array<{ zone: string; visits: number }>
+  valuePerVisit: number
+  items: NodeItemStat[]
+}
+
+export interface NodesResponse {
+  house: number
+  ahCut: number
+  takenAt: number | null
+  visits: number
+  lastVisitAt: number | null
+  nodes: NodeStat[]
+}
+
+export interface NodeImport {
+  visits: number // in the file
+  added: number
+  skipped: number
+}
+
+export const nodesApi = {
+  stats: () => get<NodesResponse>('/api/nodes'),
+  upload: (savedVariables: string) => send<NodeImport>('POST', '/api/nodes', { savedVariables }),
+}

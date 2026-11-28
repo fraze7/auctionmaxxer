@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: NodeLog
+## Notes: Logs what you loot from mining and herb nodes so an external tracker can import it.
+## Author: Fraze
+## Version: 1.0.0
+## SavedVariables: NodeLogDB
+
+NodeLog.lua

@@ -26,6 +26,8 @@ data.
 - **Vendor and Favor:** items listed below what a vendor pays, and the cheapest way to earn a reputation currency.
 - **Track record:** saves each hour's top recommendations and checks a day later whether they would have made money.
 - **Watchlist:** price rules and per-tab alerts, delivered through Discord.
+- **Nodes:** an in-game addon logs what each mining node drops; uploaded here, it gives real drop rates (with how
+  sure they are) and what a node is worth at current prices.
 
 ## How it works
 
@@ -42,7 +44,7 @@ flowchart LR
 |---|---|
 | Server | Node 24, TypeScript, Express 5, better-sqlite3, zod |
 | Web | React 19, Vite, Tailwind CSS 4, TanStack Query |
-| Tests | `node:test`, 250 tests with no network access |
+| Tests | `node:test`, 263 tests with no network access |
 | Hosting | Ubuntu VPS, systemd services, Caddy for HTTPS and login, nightly database backups |
 
 Each snapshot covers roughly 130,000 to 150,000 stackable listings, reduced to per-item price summaries and the cheapest
